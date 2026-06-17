@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   backend-lint:
     runs-on: ubuntu-latest
@@ -24,10 +28,27 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r backend/requirements-dev.txt
-      - run: cd backend && python -m pytest tests/ -v
+      - run: pip install -r backend/requirements-dev.txt Pillow
+      - name: Run tests
+        run: cd backend && python -m pytest tests/ -v --tb=short
         env:
           DATABASE_URL: sqlite://
+      - name: Render test screenshots
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: cd backend && python ../scripts/render_test_screenshots.py
+        env:
+          DATABASE_URL: sqlite://
+      - name: Configure AWS credentials (OIDC)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::970615509970:role/aifakeorreal-ci
+          aws-region: us-west-2
+      - name: Upload screenshots to S3
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          aws s3 sync docs/screenshots/ s3://aifakeorreal-assets/screenshots/ \
+            --content-type image/png --delete
 
   extension-build:
     runs-on: ubuntu-latest
