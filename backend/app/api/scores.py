@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.models.url import URLScore
 from app.schemas.url import BatchScoreRequest, BatchScoreResponse, ScoreResponse
+from app.services.cache import score_cache
 from app.services.scoring import extract_domain, hash_url, score_to_confidence
 
 router = APIRouter(tags=["scores"])
@@ -41,13 +42,23 @@ def _get_or_create_url(db: Session, url: str) -> URLScore:
     return url_score
 
 
+def _cached_response(db: Session, url: str) -> ScoreResponse:
+    url_hash = hash_url(url)
+    cached = score_cache.get(url_hash)
+    if cached is not None:
+        return ScoreResponse(**cached)
+
+    response = _url_to_response(_get_or_create_url(db, url))
+    score_cache.set(url_hash, response.model_dump())
+    return response
+
+
 @router.get("/score", response_model=ScoreResponse)
 def get_score(
     url: str = Query(..., description="URL to look up"),
     db: Session = Depends(get_db),
 ) -> ScoreResponse:
-    url_score = _get_or_create_url(db, url)
-    return _url_to_response(url_score)
+    return _cached_response(db, url)
 
 
 @router.post("/scores/batch", response_model=BatchScoreResponse)
@@ -55,8 +66,5 @@ def batch_scores(
     body: BatchScoreRequest,
     db: Session = Depends(get_db),
 ) -> BatchScoreResponse:
-    results = []
-    for url in body.urls[:50]:
-        url_score = _get_or_create_url(db, url)
-        results.append(_url_to_response(url_score))
+    results = [_cached_response(db, url) for url in body.urls[:50]]
     return BatchScoreResponse(scores=results)

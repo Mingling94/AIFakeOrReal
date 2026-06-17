@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.models.url import URLScore
+from app.services.cache import score_cache
 from app.services.detection import ContentExtractor, TextAnalyzer
 from app.services.scoring import (
     calculate_combined_score,
@@ -52,6 +53,7 @@ async def analyze_url(
     )
 
     db.commit()
+    score_cache.invalidate(url_hash)
 
     return {
         "url_hash": url_hash,

@@ -99,6 +99,69 @@ class TestSubmitVote:
         assert me_resp.json()["total_votes"] == 2
 
 
+class TestRevoting:
+    def test_should_update_vote_not_duplicate_for_same_user(
+        self, client: TestClient, auth_headers: dict[str, str]
+    ) -> None:
+        url = "http://example.com/revote"
+        client.post(
+            "/api/v1/vote",
+            json={"url": url, "vote": "human"},
+            headers=auth_headers,
+        )
+        client.post(
+            "/api/v1/vote",
+            json={"url": url, "vote": "ai_generated"},
+            headers=auth_headers,
+        )
+
+        breakdown = client.get("/api/v1/votes", params={"url": url}).json()
+        assert breakdown["total"] == 1
+        assert breakdown["ai_generated"] == 1
+        assert breakdown["human"] == 0
+
+    def test_should_not_double_count_total_votes_when_revoting(
+        self, client: TestClient, auth_headers: dict[str, str]
+    ) -> None:
+        url = "http://example.com/revote-count"
+        client.post(
+            "/api/v1/vote", json={"url": url, "vote": "human"}, headers=auth_headers
+        )
+        client.post(
+            "/api/v1/vote", json={"url": url, "vote": "mixed"}, headers=auth_headers
+        )
+
+        me_resp = client.get("/api/v1/auth/me", headers=auth_headers)
+        assert me_resp.json()["total_votes"] == 1
+
+    def test_should_allow_multiple_anonymous_votes(self, client: TestClient) -> None:
+        url = "http://example.com/anon-stack"
+        client.post("/api/v1/vote", json={"url": url, "vote": "human"})
+        client.post("/api/v1/vote", json={"url": url, "vote": "human"})
+
+        breakdown = client.get("/api/v1/votes", params={"url": url}).json()
+        assert breakdown["total"] == 2
+
+    def test_revote_should_update_crowd_score(
+        self, client: TestClient, auth_headers: dict[str, str]
+    ) -> None:
+        url = "http://example.com/revote-score"
+        client.post(
+            "/api/v1/vote", json={"url": url, "vote": "human"}, headers=auth_headers
+        )
+        score_after_human = client.get("/api/v1/score", params={"url": url}).json()
+        assert score_after_human["crowd_score"] < 0.5
+
+        client.post(
+            "/api/v1/vote",
+            json={"url": url, "vote": "ai_generated"},
+            headers=auth_headers,
+        )
+        score_after_ai = client.get("/api/v1/score", params={"url": url}).json()
+        assert score_after_ai["crowd_score"] > 0.5
+        assert score_after_ai["vote_count"] == 1
+
+
 class TestGetVotes:
     def test_should_return_zeroes_for_unknown_url(self, client: TestClient) -> None:
         resp = client.get("/api/v1/votes", params={"url": "http://unknown.example.com"})

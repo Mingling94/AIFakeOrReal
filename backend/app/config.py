@@ -15,7 +15,14 @@ class Settings(BaseSettings):
     VOTE_THRESHOLD_LOW: int = 10
     VOTE_THRESHOLD_HIGH: int = 100
 
-    CORS_ORIGINS: list[str] = ["*"]
+    # Browsers reject `Access-Control-Allow-Origin: *` together with
+    # credentials, so we match Chrome extension origins by regex instead.
+    # Set CORS_ORIGINS in the environment to allow specific web origins.
+    CORS_ORIGINS: list[str] = []
+    CORS_ORIGIN_REGEX: str = r"chrome-extension://.*"
+
+    # Score cache TTL in seconds (Redis). Set to 0 to disable caching.
+    CACHE_TTL_SECONDS: int = 3600
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

@@ -53,6 +53,21 @@ Then in Chrome:
 3. Click "Load unpacked"
 4. Select the `extension/dist` folder
 
+> Toolbar icons are generated (no design assets needed). Regenerate them with
+> `python3 extension/scripts/generate_icons.py`.
+
+## Testing
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python -m pytest          # 99 tests, runs against in-memory SQLite
+```
+
+Tests cover the scoring math, AI text-detection heuristics, the cache's
+graceful degradation, and every API route (success, validation, auth, and
+error cases). No PostgreSQL or Redis instance is required to run them.
+
 ## Project Structure
 
 ```

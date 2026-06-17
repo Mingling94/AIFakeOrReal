@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 
 os.environ["DATABASE_URL"] = "sqlite://"
+# Disable the Redis-backed score cache so tests never touch a live Redis.
+os.environ["CACHE_TTL_SECONDS"] = "0"
 
 from collections.abc import Generator
 
@@ -12,6 +14,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.deps import get_db
 from app.db.base import Base
 from app.main import app
 
@@ -39,8 +42,6 @@ def _override_get_db() -> Generator[Session, None, None]:
     finally:
         session.close()
 
-
-from app.api.deps import get_db
 
 app.dependency_overrides[get_db] = _override_get_db
 

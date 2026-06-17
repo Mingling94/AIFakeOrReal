@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from app.services.detection import ContentExtractor, TextAnalyzer
@@ -271,6 +272,3 @@ class TestContentExtractor:
 
             with pytest.raises(Exception):
                 await self.extractor.extract_from_url("http://nonexistent.example.com")
-
-
-import httpx

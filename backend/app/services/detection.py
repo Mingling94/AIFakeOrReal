@@ -111,7 +111,7 @@ class TextAnalyzer:
         if mean == 0:
             return 0.5
 
-        variance = sum((l - mean) ** 2 for l in lengths) / len(lengths)
+        variance = sum((n - mean) ** 2 for n in lengths) / len(lengths)
         cv = math.sqrt(variance) / mean
 
         return max(0.0, min(1.0, cv / 1.5))
@@ -138,7 +138,7 @@ class TextAnalyzer:
         if mean == 0:
             return 0.5
 
-        variance = sum((l - mean) ** 2 for l in lengths) / len(lengths)
+        variance = sum((n - mean) ** 2 for n in lengths) / len(lengths)
         cv = math.sqrt(variance) / mean
 
         uniformity = max(0.0, min(1.0, 1.0 - (cv / 1.0)))
