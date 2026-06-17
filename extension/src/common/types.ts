@@ -64,8 +64,13 @@ export interface Token {
   token_type: string;
 }
 
+// Content extracted from the page by the content script and sent to the
+// backend's /analyze/content endpoint.
 export interface ContentData {
-  text: string;
-  imageUrls: string[];
+  url: string;
+  platform?: string;
+  content_type?: string;
   title: string;
+  text: string;
+  comments: string[];
 }

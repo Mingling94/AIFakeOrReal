@@ -10,31 +10,40 @@
     .note { width: 360px; margin: 8px auto; font-size: 12px; color: #555; }
   </style>
   <!--
-    Dev-only harness: shims the chrome.* APIs the popup uses and loads the REAL
-    built popup bundle (../dist/popup.js) against a running backend. Lets us
-    exercise the actual popup UI in a plain browser. Not shipped in the extension.
+    Dev-only harness: shims the (promise-based) WebExtension APIs the popup uses
+    and loads the REAL built popup bundle (../dist/popup.js) against a running
+    backend. Lets us exercise the actual popup UI in a plain browser.
   -->
   <script>
-    // Point the API client at the local test backend before the bundle loads.
-    localStorage.setItem("aifakeorreal_api_url", "http://127.0.0.1:8031/api/v1");
-
     const TEST_URL = new URLSearchParams(location.search).get("pageUrl")
       || "http://example.com/sample-article";
+    const API_URL = "http://127.0.0.1:8031/api/v1";
 
+    const store = { apiUrl: API_URL };
     window.chrome = {
       tabs: {
-        query: (_opts, cb) => cb([{ id: 1, url: TEST_URL }]),
+        query: async () => [{ id: 1, url: TEST_URL }],
+        sendMessage: async () => ({ ok: false, error: "no content script in harness" }),
+        get: async () => ({ id: 1, url: TEST_URL }),
+        onUpdated: { addListener: () => {} },
+        onActivated: { addListener: () => {} },
       },
       runtime: {
-        sendMessage: (msg) => { console.log("[shim] sendMessage", msg); },
+        sendMessage: async (msg) => { console.log("[shim] sendMessage", msg); },
         onMessage: { addListener: () => {} },
       },
       storage: {
         local: {
-          get: (_keys, cb) => cb({}),
-          set: (_v, cb) => cb && cb(),
-          remove: (_k, cb) => cb && cb(),
+          get: async (keys) => {
+            if (typeof keys === "string") return { [keys]: store[keys] };
+            return { ...store };
+          },
+          set: async (obj) => { Object.assign(store, obj); },
+          remove: async (k) => { delete store[k]; },
         },
+      },
+      action: {
+        setBadgeText: () => {}, setBadgeBackgroundColor: () => {},
       },
     };
   </script>

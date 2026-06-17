@@ -4,8 +4,11 @@
   "description": "Crowdsourced AI content detection for any URL",
   "scripts": {
     "build": "webpack --mode production",
+    "build:firefox": "TARGET=firefox webpack --mode production",
+    "build:all": "npm run build && npm run build:firefox",
     "watch": "webpack --mode development --watch",
-    "clean": "rm -rf dist"
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist dist-firefox"
   },
   "dependencies": {
     "react": "^18.3.1",

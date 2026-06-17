@@ -2,6 +2,10 @@ const path = require("path");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
+// Build target: "chrome" (default, -> dist/) or "firefox" (-> dist-firefox/).
+const TARGET = process.env.TARGET === "firefox" ? "firefox" : "chrome";
+const OUT_DIR = TARGET === "firefox" ? "dist-firefox" : "dist";
+
 module.exports = {
   entry: {
     background: "./src/background/service-worker.ts",
@@ -10,7 +14,7 @@ module.exports = {
     options: "./src/options/index.tsx",
   },
   output: {
-    path: path.resolve(__dirname, "dist"),
+    path: path.resolve(__dirname, OUT_DIR),
     filename: "[name].js",
     clean: true,
   },
@@ -33,7 +37,7 @@ module.exports = {
   plugins: [
     new CopyWebpackPlugin({
       patterns: [
-        { from: "public/manifest.json", to: "manifest.json" },
+        { from: `public/manifest.${TARGET}.json`, to: "manifest.json" },
         { from: "public/icons", to: "icons", noErrorOnMissing: true },
       ],
     }),

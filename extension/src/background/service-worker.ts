@@ -1,4 +1,6 @@
-const API_BASE = "http://localhost:8000/api/v1";
+import { ext } from "../common/browser";
+import { getApiUrl, getAutoCheck } from "../common/config";
+
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
 interface CachedScore {
@@ -8,29 +10,27 @@ interface CachedScore {
 
 function setBadge(tabId: number, score: number | null): void {
   if (score === null) {
-    chrome.action.setBadgeText({ tabId, text: "?" });
-    chrome.action.setBadgeBackgroundColor({ tabId, color: "#9e9e9e" });
+    ext.action.setBadgeText({ tabId, text: "?" });
+    ext.action.setBadgeBackgroundColor({ tabId, color: "#9e9e9e" });
     return;
   }
-
   const pct = Math.round(score * 100);
   if (pct <= 30) {
-    chrome.action.setBadgeText({ tabId, text: "H" });
-    chrome.action.setBadgeBackgroundColor({ tabId, color: "#4caf50" });
+    ext.action.setBadgeText({ tabId, text: "H" });
+    ext.action.setBadgeBackgroundColor({ tabId, color: "#4caf50" });
   } else if (pct <= 70) {
-    chrome.action.setBadgeText({ tabId, text: "M" });
-    chrome.action.setBadgeBackgroundColor({ tabId, color: "#ff9800" });
+    ext.action.setBadgeText({ tabId, text: "M" });
+    ext.action.setBadgeBackgroundColor({ tabId, color: "#ff9800" });
   } else {
-    chrome.action.setBadgeText({ tabId, text: "A" });
-    chrome.action.setBadgeBackgroundColor({ tabId, color: "#f44336" });
+    ext.action.setBadgeText({ tabId, text: "A" });
+    ext.action.setBadgeBackgroundColor({ tabId, color: "#f44336" });
   }
 }
 
 async function fetchScore(url: string): Promise<number | null> {
   try {
-    const response = await fetch(
-      `${API_BASE}/score?url=${encodeURIComponent(url)}`
-    );
+    const base = await getApiUrl();
+    const response = await fetch(`${base}/score?url=${encodeURIComponent(url)}`);
     if (!response.ok) return null;
     const data = await response.json();
     return data.combined_score;
@@ -41,58 +41,56 @@ async function fetchScore(url: string): Promise<number | null> {
 
 async function getScoreWithCache(url: string): Promise<number | null> {
   const cacheKey = `score_${url}`;
-  const result = await chrome.storage.local.get(cacheKey);
+  const result = await ext.storage.local.get(cacheKey);
   const cached = result[cacheKey] as CachedScore | undefined;
-
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.score;
   }
-
   const score = await fetchScore(url);
-  await chrome.storage.local.set({
+  await ext.storage.local.set({
     [cacheKey]: { score, timestamp: Date.now() } as CachedScore,
   });
   return score;
 }
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.status !== "complete" || !tab.url) return;
-  if (tab.url.startsWith("chrome://") || tab.url.startsWith("chrome-extension://")) return;
+function isCheckable(url: string | undefined): url is string {
+  return !!url && /^https?:\/\//.test(url);
+}
 
-  const autoCheck = await chrome.storage.local.get("autoCheck");
-  if (autoCheck.autoCheck === false) {
+ext.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status !== "complete" || !isCheckable(tab.url)) return;
+  if (!(await getAutoCheck())) {
     setBadge(tabId, null);
     return;
   }
-
-  const score = await getScoreWithCache(tab.url);
-  setBadge(tabId, score);
+  setBadge(tabId, await getScoreWithCache(tab.url));
 });
 
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  const tab = await chrome.tabs.get(activeInfo.tabId);
-  if (!tab.url || tab.url.startsWith("chrome://")) return;
-
-  const score = await getScoreWithCache(tab.url);
-  setBadge(activeInfo.tabId, score);
+ext.tabs.onActivated.addListener(async (activeInfo) => {
+  const tab = await ext.tabs.get(activeInfo.tabId);
+  if (!isCheckable(tab.url)) return;
+  setBadge(activeInfo.tabId, await getScoreWithCache(tab.url));
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type === "VOTE_SUBMITTED" || message.type === "REFRESH_SCORE") {
-    const url = message.url as string;
-    const cacheKey = `score_${url}`;
-    chrome.storage.local.remove(cacheKey);
-
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      if (tabs[0]?.id && tabs[0].url === url) {
-        const score = await fetchScore(url);
-        setBadge(tabs[0].id, score);
-        await chrome.storage.local.set({
-          [cacheKey]: { score, timestamp: Date.now() },
-        });
-      }
-    });
-    sendResponse({ ok: true });
+ext.runtime.onMessage.addListener(
+  (message: { type?: string; url?: string }): boolean => {
+    if (
+      (message?.type === "VOTE_SUBMITTED" || message?.type === "REFRESH_SCORE") &&
+      message.url
+    ) {
+      const url = message.url;
+      ext.storage.local.remove(`score_${url}`);
+      ext.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
+        const tab = tabs[0];
+        if (tab?.id && tab.url === url) {
+          const score = await fetchScore(url);
+          setBadge(tab.id, score);
+          await ext.storage.local.set({
+            [`score_${url}`]: { score, timestamp: Date.now() },
+          });
+        }
+      });
+    }
+    return false;
   }
-  return true;
-});
+);

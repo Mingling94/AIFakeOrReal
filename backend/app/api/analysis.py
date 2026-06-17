@@ -16,7 +16,8 @@ from app.services.scoring import (
     hash_url,
     validate_url,
 )
-from app.services.sources import detect_platform, extract_content
+from app.services.sources import ExtractedContent, detect_platform, extract_content
+from app.schemas.analysis import AnalyzeContentRequest
 
 router = APIRouter(tags=["analysis"])
 
@@ -38,14 +39,19 @@ def _get_or_create(db: Session, url: str) -> URLScore:
     return url_score
 
 
-async def perform_analysis(db: Session, url: str) -> tuple[URLScore, dict]:
-    """Extract content for a URL, run AI detection, and persist the result.
+async def perform_analysis(
+    db: Session, url: str, content: ExtractedContent | None = None
+) -> tuple[URLScore, dict]:
+    """Run AI detection for a URL and persist the result.
 
-    Shared by POST /analyze and the public /check endpoint. Raises FetchError
-    if the content cannot be safely fetched.
+    If `content` is provided (e.g. extracted client-side by the browser
+    extension, including comments behind a login wall), it is used directly;
+    otherwise the content is fetched server-side. Raises FetchError if a
+    server-side fetch fails. Shared by /analyze, /analyze/content, and /check.
     """
     url_score = _get_or_create(db, url)
-    content = await extract_content(url)
+    if content is None:
+        content = await extract_content(url)
     analysis = text_analyzer.analyze_text(content.text)
 
     # Comment accusations ("this is AI generated") are a strong human signal;
@@ -96,20 +102,56 @@ async def analyze_url(
     except FetchError as e:
         raise HTTPException(status_code=422, detail=f"Could not fetch URL: {e}")
 
+    return _analysis_response(url_score, extra)
+
+
+def _analysis_response(url_score: URLScore, extra: dict) -> dict:
     content = extra["content"]
     return {
         "url_hash": url_score.url_hash,
-        "url": url,
+        "url": url_score.url,
         "platform": content.platform,
         "content_type": content.content_type,
         "content": {
             "title": content.title,
             "author": content.author,
             "media_count": len(content.media_urls),
+            "comment_count": len(content.comments),
         },
         "analysis": extra["analysis"],
         "combined_score": url_score.combined_score,
     }
+
+
+@router.post(
+    "/analyze/content",
+    summary="Analyze client-extracted content",
+    dependencies=[Depends(rate_limit("analyze", "ANALYZE_RATE_LIMIT"))],
+)
+async def analyze_content(
+    body: AnalyzeContentRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Analyze page content extracted by the client (e.g. the extension).
+
+    Use this when the content lives behind a login wall or only appears after
+    interaction (expanding comments) — the extension reads the page the user is
+    already viewing and posts the text + comments here.
+    """
+    try:
+        validate_url(body.url)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    content = ExtractedContent(
+        platform=body.platform or detect_platform(body.url),
+        content_type=body.content_type or "unknown",
+        title=body.title,
+        text=body.text,
+        comments=body.comments,
+    )
+    url_score, extra = await perform_analysis(db, body.url, content=content)
+    return _analysis_response(url_score, extra)
 
 
 @router.get("/analysis")

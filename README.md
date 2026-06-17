@@ -53,19 +53,35 @@ docker-compose up
 
 The API will be available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
 
-### Extension
+### Extension (Chrome, Edge, Brave, and Firefox)
 
 ```bash
 cd extension
 npm install
-npm run build
+npm run build:all      # builds dist/ (Chromium) and dist-firefox/ (Firefox)
 ```
 
-Then in Chrome:
+**Chrome / Edge / Brave** (any Chromium browser):
 1. Go to `chrome://extensions`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select the `extension/dist` folder
+2. Enable "Developer mode" → "Load unpacked"
+3. Select the `extension/dist` folder
+
+**Firefox:**
+1. Go to `about:debugging#/runtime/this-firefox`
+2. "Load Temporary Add-on…" → select `extension/dist-firefox/manifest.json`
+
+The extension uses the cross-browser WebExtension APIs (`browser`/`chrome`), so
+the same source builds for both. The API server URL is configurable on the
+options page and shared across the popup and background worker.
+
+#### How analysis works (reads the page you're viewing)
+When you click **Analyze**, the content script reads the page you're already
+looking at — expanding collapsed comments on Reddit, Instagram, and Facebook —
+and sends the caption + comments to the backend. This works behind login walls
+and on SPAs that a server can't fetch. If the content script can't run (e.g. a
+restricted page), it falls back to server-side fetching. The
+[comment-accusation heuristic](docs/API.md) then flags content other users have
+called out as AI.
 
 > Toolbar icons are generated (no design assets needed). Regenerate them with
 > `python3 extension/scripts/generate_icons.py`.
@@ -75,7 +91,10 @@ Then in Chrome:
 ```bash
 cd backend
 pip install -r requirements-dev.txt
-python -m pytest          # 99 tests, runs against in-memory SQLite
+python -m pytest          # runs against in-memory SQLite
+
+cd ../extension
+npm run typecheck         # tsc --noEmit
 ```
 
 Tests cover the scoring math, AI text-detection heuristics, the cache's

@@ -1,31 +1,23 @@
-function extractPageContent(): { text: string; imageUrls: string[]; title: string } {
-  const title = document.title || "";
+import { ext } from "../common/browser";
+import { extractPage } from "./readers";
 
-  const cloned = document.body.cloneNode(true) as HTMLElement;
-  const stripSelectors = "script, style, nav, footer, header, aside, noscript, iframe";
-  cloned.querySelectorAll(stripSelectors).forEach((el) => el.remove());
-
-  let text = cloned.innerText || cloned.textContent || "";
-  text = text.replace(/\s+/g, " ").trim();
-  if (text.length > 50000) {
-    text = text.substring(0, 50000);
-  }
-
-  const imageUrls: string[] = [];
-  document.querySelectorAll("img[src]").forEach((img) => {
-    const src = img.getAttribute("src");
-    if (src && src.startsWith("http")) {
-      imageUrls.push(src);
+// Respond to the popup's request to read the current page (expanding comments
+// where needed). Async work is supported by returning `true` to keep the
+// message channel open until sendResponse is called.
+ext.runtime.onMessage.addListener(
+  (
+    message: { type?: string },
+    _sender: unknown,
+    sendResponse: (response: unknown) => void
+  ): boolean => {
+    if (message?.type === "EXTRACT_CONTENT") {
+      extractPage()
+        .then((content) => sendResponse({ ok: true, content }))
+        .catch((err) =>
+          sendResponse({ ok: false, error: String(err?.message || err) })
+        );
+      return true;
     }
-  });
-
-  return { text, imageUrls: imageUrls.slice(0, 20), title };
-}
-
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type === "EXTRACT_CONTENT") {
-    const content = extractPageContent();
-    sendResponse(content);
+    return false;
   }
-  return true;
-});
+);

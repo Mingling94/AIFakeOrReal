@@ -88,6 +88,47 @@ class TestGetAnalysis:
         assert resp.json()["ai_score"] is not None
 
 
+class TestAnalyzeContent:
+    def test_should_analyze_client_supplied_content(self, client: TestClient) -> None:
+        resp = client.post(
+            "/api/v1/analyze/content",
+            json={
+                "url": "https://www.instagram.com/p/abc/",
+                "content_type": "post",
+                "title": "Sunset",
+                "text": "A calm evening by the sea.",
+                "comments": ["this is clearly AI generated", "obvious AI slop"],
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["platform"] == "instagram"
+        assert data["content"]["comment_count"] == 2
+        assert data["analysis"]["comment_signal"]["triggered"] is True
+
+        score = client.get(
+            "/api/v1/score", params={"url": "https://www.instagram.com/p/abc/"}
+        ).json()
+        assert score["ai_score"] >= 0.7
+        assert score["platform"] == "instagram"
+
+    def test_should_reject_invalid_url(self, client: TestClient) -> None:
+        resp = client.post(
+            "/api/v1/analyze/content",
+            json={"url": "ftp://example.com", "text": "x"},
+        )
+        assert resp.status_code == 422
+
+    def test_should_not_need_network(self, client: TestClient) -> None:
+        # No mocking of any fetcher: proves analysis runs purely on the payload.
+        resp = client.post(
+            "/api/v1/analyze/content",
+            json={"url": "https://www.facebook.com/u/posts/1", "text": "hello world"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["platform"] == "facebook"
+
+
 class TestCommentSignalIntegration:
     def test_comment_accusations_should_raise_ai_score(
         self, client: TestClient

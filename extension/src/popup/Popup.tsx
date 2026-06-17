@@ -1,11 +1,24 @@
 import React, { useCallback, useEffect, useState } from "react";
-import type { ScoreResponse, VoteBreakdown, VoteType } from "../common/types";
+import type {
+  ContentData,
+  ScoreResponse,
+  VoteBreakdown,
+  VoteType,
+} from "../common/types";
 import { api } from "../common/api";
+import { ext } from "../common/browser";
 import { ScoreGauge } from "./components/ScoreGauge";
 import { VoteButtons } from "./components/VoteButtons";
 import { CommunityStats } from "./components/CommunityStats";
 
+interface ExtractResponse {
+  ok: boolean;
+  content?: Omit<ContentData, "url">;
+  error?: string;
+}
+
 export function Popup() {
+  const [tabId, setTabId] = useState<number | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [score, setScore] = useState<ScoreResponse | null>(null);
   const [votes, setVotes] = useState<VoteBreakdown | null>(null);
@@ -33,11 +46,12 @@ export function Popup() {
   }, []);
 
   useEffect(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tabUrl = tabs[0]?.url;
-      if (tabUrl && !tabUrl.startsWith("chrome://")) {
-        setUrl(tabUrl);
-        fetchData(tabUrl);
+    ext.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+      const tab = tabs[0];
+      if (tab?.url && /^https?:\/\//.test(tab.url)) {
+        setTabId(tab.id ?? null);
+        setUrl(tab.url);
+        fetchData(tab.url);
       } else {
         setLoading(false);
         setError("Cannot analyze this page.");
@@ -51,7 +65,7 @@ export function Popup() {
     try {
       await api.submitVote({ url, vote });
       setVotedAs(vote);
-      chrome.runtime.sendMessage({ type: "VOTE_SUBMITTED", url });
+      ext.runtime.sendMessage({ type: "VOTE_SUBMITTED", url });
       await fetchData(url);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Vote failed.");
@@ -65,8 +79,26 @@ export function Popup() {
     setAnalyzing(true);
     setError(null);
     try {
-      await api.triggerAnalysis(url);
-      chrome.runtime.sendMessage({ type: "REFRESH_SCORE", url });
+      // Prefer reading the page the user is viewing (works behind logins and
+      // expands comments). Fall back to server-side fetch if that fails.
+      let analyzed = false;
+      if (tabId !== null) {
+        try {
+          const resp = (await ext.tabs.sendMessage(tabId, {
+            type: "EXTRACT_CONTENT",
+          })) as ExtractResponse | undefined;
+          if (resp?.ok && resp.content) {
+            await api.analyzeContent({ url, ...resp.content });
+            analyzed = true;
+          }
+        } catch {
+          /* content script unavailable on this page; fall back below */
+        }
+      }
+      if (!analyzed) {
+        await api.triggerAnalysis(url);
+      }
+      ext.runtime.sendMessage({ type: "REFRESH_SCORE", url });
       await fetchData(url);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed.");

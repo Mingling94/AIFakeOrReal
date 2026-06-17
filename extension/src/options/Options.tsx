@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../common/api";
+import {
+  DEFAULT_API_URL,
+  getApiUrl,
+  getAutoCheck,
+  setApiUrl as saveApiUrl,
+  setAutoCheck as saveAutoCheck,
+  setToken,
+} from "../common/config";
 import type { UserStats } from "../common/types";
 
 const styles: Record<string, React.CSSProperties> = {
@@ -41,32 +49,25 @@ const styles: Record<string, React.CSSProperties> = {
 
 export function Options() {
   const [autoCheck, setAutoCheck] = useState(true);
-  const [apiUrl, setApiUrl] = useState("http://localhost:8000/api/v1");
+  const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState<UserStats | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    chrome.storage.local.get(["autoCheck"], (result) => {
-      if (result.autoCheck !== undefined) setAutoCheck(result.autoCheck);
-    });
-    const saved = localStorage.getItem("aifakeorreal_api_url");
-    if (saved) setApiUrl(saved);
-
-    const token = localStorage.getItem("aifakeorreal_token");
-    if (token) {
-      api.getUserStats().then(setUser).catch(() => {});
-    }
+    getAutoCheck().then(setAutoCheck);
+    getApiUrl().then(setApiUrl);
+    api.getUserStats().then(setUser).catch(() => {});
   }, []);
 
   const handleAutoCheckChange = (checked: boolean) => {
     setAutoCheck(checked);
-    chrome.storage.local.set({ autoCheck: checked });
+    void saveAutoCheck(checked);
   };
 
-  const handleApiUrlSave = () => {
-    localStorage.setItem("aifakeorreal_api_url", apiUrl);
+  const handleApiUrlSave = async () => {
+    await saveApiUrl(apiUrl);
     setMessage("API URL saved.");
     setTimeout(() => setMessage(""), 2000);
   };
@@ -74,9 +75,8 @@ export function Options() {
   const handleLogin = async () => {
     try {
       const token = await api.login(email, password);
-      localStorage.setItem("aifakeorreal_token", token.access_token);
-      const stats = await api.getUserStats();
-      setUser(stats);
+      await setToken(token.access_token);
+      setUser(await api.getUserStats());
       setMessage("Logged in!");
       setPassword("");
     } catch (e) {
@@ -87,9 +87,8 @@ export function Options() {
   const handleRegister = async () => {
     try {
       const token = await api.register(email, password);
-      localStorage.setItem("aifakeorreal_token", token.access_token);
-      const stats = await api.getUserStats();
-      setUser(stats);
+      await setToken(token.access_token);
+      setUser(await api.getUserStats());
       setMessage("Account created!");
       setPassword("");
     } catch (e) {
@@ -97,8 +96,8 @@ export function Options() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("aifakeorreal_token");
+  const handleLogout = async () => {
+    await setToken(null);
     setUser(null);
     setMessage("Logged out.");
   };
