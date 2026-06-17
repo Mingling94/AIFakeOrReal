@@ -1,19 +1,25 @@
 from __future__ import annotations
 
+import hashlib
 import uuid
 from collections.abc import Callable, Generator
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db.session import SessionLocal
+from app.models.api_key import APIKey
 from app.models.user import User
 from app.services.ratelimit import rate_limiter
 
 security = HTTPBearer(auto_error=False)
+
+
+def hash_api_key(raw_key: str) -> str:
+    return hashlib.sha256(raw_key.encode()).hexdigest()
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -22,6 +28,38 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+def record_api_usage(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    db: Session = Depends(get_db),
+) -> APIKey | None:
+    """Optional API-key auth for public endpoints.
+
+    No key -> anonymous (allowed, free tier). A valid key increments its usage
+    counter (for future usage-based billing). An unknown key is rejected.
+    """
+    if not x_api_key:
+        return None
+    record = db.query(APIKey).filter(APIKey.key_hash == hash_api_key(x_api_key)).first()
+    if record is None:
+        raise HTTPException(status_code=401, detail="Invalid API key.")
+    record.request_count += 1
+    db.commit()
+    return record
+
+
+def require_api_key(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    db: Session = Depends(get_db),
+) -> APIKey:
+    """Strict variant: requires a valid API key (used by the usage endpoint)."""
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="Missing X-API-Key header.")
+    record = db.query(APIKey).filter(APIKey.key_hash == hash_api_key(x_api_key)).first()
+    if record is None:
+        raise HTTPException(status_code=401, detail="Invalid API key.")
+    return record
 
 
 def rate_limit(category: str, limit_attr: str) -> Callable[[Request], None]:

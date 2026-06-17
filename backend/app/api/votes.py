@@ -16,6 +16,7 @@ from app.services.scoring import (
     hash_url,
     validate_url,
 )
+from app.services.sources import detect_platform
 
 router = APIRouter(tags=["votes"])
 
@@ -64,6 +65,7 @@ def submit_vote(
             url_hash=url_hash,
             url=body.url,
             domain=extract_domain(body.url),
+            platform=detect_platform(body.url),
         )
         db.add(url_score)
         db.flush()

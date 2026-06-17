@@ -13,6 +13,7 @@ class ScoreResponse(BaseModel):
     crowd_score: float | None = None
     combined_score: float | None = None
     vote_count: int = 0
+    platform: str = "generic"
     content_type: str = "unknown"
     last_analyzed: datetime | None = None
     confidence: str = "none"

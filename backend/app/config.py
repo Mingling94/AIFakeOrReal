@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_WINDOW_SECONDS: int = 60
     VOTE_RATE_LIMIT: int = 30
     ANALYZE_RATE_LIMIT: int = 10
+    CHECK_RATE_LIMIT: int = 120
 
     # Max URL length accepted by the API.
     MAX_URL_LENGTH: int = 2048

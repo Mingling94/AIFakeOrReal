@@ -51,63 +51,30 @@ def _assert_fetchable(url: str) -> None:
     _assert_public_host(parsed.hostname)
 
 
-class ContentExtractor:
-    STRIP_TAGS = {"script", "style", "nav", "footer", "header", "aside", "noscript"}
+_MAX_REDIRECTS = 5
 
-    def __init__(self, transport: httpx.AsyncBaseTransport | None = None) -> None:
-        # `transport` lets tests inject httpx.MockTransport; production uses None.
-        self._transport = transport
 
-    async def extract_from_url(self, url: str) -> dict:
-        _assert_fetchable(url)
+async def safe_fetch(
+    url: str, transport: httpx.AsyncBaseTransport | None = None
+) -> str:
+    """Fetch a URL as text, applying the SSRF guard on every redirect hop and
+    capping the download at MAX_FETCH_BYTES.
 
-        try:
-            html = await self._fetch(url)
-        except httpx.HTTPError as exc:
-            raise FetchError(str(exc)) from exc
-
-        soup = BeautifulSoup(html, "html.parser")
-
-        for tag in soup.find_all(self.STRIP_TAGS):
-            tag.decompose()
-
-        title = soup.title.string.strip() if soup.title and soup.title.string else ""
-
-        main = soup.find("main") or soup.find("article") or soup.body
-        text = main.get_text(separator=" ", strip=True) if main else ""
-        text = re.sub(r"\s+", " ", text).strip()
-
-        image_urls = []
-        for img in soup.find_all("img", src=True):
-            src = img["src"]
-            if src.startswith("http"):
-                image_urls.append(src)
-
-        return {
-            "title": title,
-            "text": text[:50000],
-            "image_urls": image_urls[:20],
-            "word_count": len(text.split()),
-        }
-
-    MAX_REDIRECTS = 5
-
-    async def _fetch(self, url: str) -> str:
-        """Fetch a URL, validating every redirect hop and capping the download.
-
-        Redirects are followed manually (not via httpx) so each hop's host is
-        re-checked against the SSRF guard — otherwise a public URL could
-        redirect to an internal address and bypass the initial check.
-        """
-        cap = settings.MAX_FETCH_BYTES
-        current = url
+    Redirects are followed manually (not via httpx) so each hop's host is
+    re-checked — otherwise a public URL could redirect to an internal address
+    and bypass the initial check. `transport` lets tests inject a MockTransport.
+    """
+    _assert_fetchable(url)
+    cap = settings.MAX_FETCH_BYTES
+    current = url
+    try:
         async with httpx.AsyncClient(
             timeout=15.0,
             follow_redirects=False,
             headers={"User-Agent": "AIFakeOrReal/1.0"},
-            transport=self._transport,
+            transport=transport,
         ) as client:
-            for _ in range(self.MAX_REDIRECTS + 1):
+            for _ in range(_MAX_REDIRECTS + 1):
                 async with client.stream("GET", current) as response:
                     if response.is_redirect:
                         location = response.headers.get("location")
@@ -132,8 +99,44 @@ class ContentExtractor:
                             f"page exceeds the maximum fetch size of {cap} bytes"
                         )
                     return b"".join(chunks).decode("utf-8", errors="replace")
+    except httpx.HTTPError as exc:
+        raise FetchError(str(exc)) from exc
 
-        raise FetchError("too many redirects")
+    raise FetchError("too many redirects")
+
+
+class ContentExtractor:
+    STRIP_TAGS = {"script", "style", "nav", "footer", "header", "aside", "noscript"}
+
+    def __init__(self, transport: httpx.AsyncBaseTransport | None = None) -> None:
+        # `transport` lets tests inject httpx.MockTransport; production uses None.
+        self._transport = transport
+
+    async def extract_from_url(self, url: str) -> dict:
+        html = await safe_fetch(url, self._transport)
+        soup = BeautifulSoup(html, "html.parser")
+
+        for tag in soup.find_all(self.STRIP_TAGS):
+            tag.decompose()
+
+        title = soup.title.string.strip() if soup.title and soup.title.string else ""
+
+        main = soup.find("main") or soup.find("article") or soup.body
+        text = main.get_text(separator=" ", strip=True) if main else ""
+        text = re.sub(r"\s+", " ", text).strip()
+
+        image_urls = []
+        for img in soup.find_all("img", src=True):
+            src = img["src"]
+            if src.startswith("http"):
+                image_urls.append(src)
+
+        return {
+            "title": title,
+            "text": text[:50000],
+            "image_urls": image_urls[:20],
+            "word_count": len(text.split()),
+        }
 
 
 class TextAnalyzer:

@@ -104,3 +104,19 @@ def score_to_confidence(vote_count: int, ai_score: float | None) -> str:
     if vote_count < 50:
         return "medium"
     return "high"
+
+
+# Verdict thresholds on the combined 0..1 AI-probability score.
+VERDICT_HUMAN_MAX = 0.3
+VERDICT_MIXED_MAX = 0.7
+
+
+def score_to_verdict(combined_score: float | None) -> str:
+    """Map a combined score to a human-readable verdict."""
+    if combined_score is None:
+        return "unknown"
+    if combined_score <= VERDICT_HUMAN_MAX:
+        return "human"
+    if combined_score <= VERDICT_MIXED_MAX:
+        return "mixed"
+    return "ai_generated"

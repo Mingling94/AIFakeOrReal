@@ -13,6 +13,7 @@ from app.services.scoring import (
     score_to_confidence,
     validate_url,
 )
+from app.services.sources import detect_platform
 
 router = APIRouter(tags=["scores"])
 
@@ -26,6 +27,7 @@ def _url_to_response(url_score: URLScore) -> ScoreResponse:
         crowd_score=url_score.crowd_score,
         combined_score=url_score.combined_score,
         vote_count=url_score.vote_count,
+        platform=url_score.platform,
         content_type=url_score.content_type,
         last_analyzed=url_score.last_analyzed,
         confidence=score_to_confidence(url_score.vote_count, url_score.ai_score),
@@ -40,6 +42,7 @@ def _get_or_create_url(db: Session, url: str) -> URLScore:
             url_hash=url_hash,
             url=url,
             domain=extract_domain(url),
+            platform=detect_platform(url),
         )
         db.add(url_score)
         db.commit()
