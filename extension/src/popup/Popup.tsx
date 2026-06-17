@@ -27,6 +27,7 @@ export function Popup() {
   const [analyzing, setAnalyzing] = useState(false);
   const [votedAs, setVotedAs] = useState<VoteType | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [reported, setReported] = useState(false);
 
   const fetchData = useCallback(async (pageUrl: string) => {
     setLoading(true);
@@ -107,6 +108,16 @@ export function Popup() {
     }
   };
 
+  const handleReport = async (reportedVerdict: "human" | "mixed" | "ai_generated") => {
+    if (!url || reported) return;
+    try {
+      await api.reportIncorrect({ url, reported_verdict: reportedVerdict });
+      setReported(true);
+    } catch {
+      // Silently fail — the report is best-effort from the user's perspective.
+    }
+  };
+
   const domain = url ? new URL(url).hostname : "";
   const hasData = score && (score.combined_score !== null || score.vote_count > 0);
 
@@ -141,6 +152,23 @@ export function Popup() {
               disabled={submitting}
             />
             <CommunityStats votes={votes} />
+            {!reported ? (
+              <div className="report-section">
+                <button
+                  className="report-btn"
+                  onClick={() => {
+                    const current = score!.combined_score;
+                    const opposite =
+                      current !== null && current > 0.5 ? "human" : "ai_generated";
+                    handleReport(opposite);
+                  }}
+                >
+                  Report incorrect
+                </button>
+              </div>
+            ) : (
+              <div className="report-section reported">Thanks for the report!</div>
+            )}
           </>
         ) : (
           <div className="no-data">

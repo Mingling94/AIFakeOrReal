@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import analysis, auth, keys, public, scores, votes
+from app.api import analysis, auth, keys, public, reports, scores, votes
 from app.config import settings
 from app.db.base import Base
 from app.db.session import engine
@@ -98,6 +98,7 @@ async def request_context(
 
 app.include_router(public.router, prefix="/api/v1")
 app.include_router(keys.router, prefix="/api/v1")
+app.include_router(reports.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(scores.router, prefix="/api/v1")
 app.include_router(votes.router, prefix="/api/v1")

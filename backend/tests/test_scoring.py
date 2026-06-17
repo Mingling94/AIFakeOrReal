@@ -112,19 +112,18 @@ class TestCalculateCombinedScore:
         assert score is not None
         assert score > 0.5
 
-    def test_should_favor_crowd_with_many_votes(self) -> None:
+    def test_should_still_weight_ai_heavily_with_many_votes(self) -> None:
+        # AI heuristics dominate by design; crowd is a minor supplementary signal.
         score = calculate_combined_score(0.2, 0.8, 200)
         assert score is not None
-        assert score > 0.5
+        assert score < 0.5  # AI says 0.2 (human); crowd disagrees but can't override
 
-    def test_should_interpolate_at_midpoint(self) -> None:
-        score_low = calculate_combined_score(0.8, 0.2, 5)
-        score_mid = calculate_combined_score(0.8, 0.2, 55)
-        score_high = calculate_combined_score(0.8, 0.2, 200)
-        assert score_low is not None
-        assert score_mid is not None
-        assert score_high is not None
-        assert score_low > score_mid > score_high
+    def test_should_shift_slightly_toward_crowd_with_more_votes(self) -> None:
+        score_few = calculate_combined_score(0.5, 0.9, 5)
+        score_many = calculate_combined_score(0.5, 0.9, 200)
+        assert score_few is not None
+        assert score_many is not None
+        assert score_many > score_few  # crowd influence grows, just doesn't dominate
 
     def test_should_agree_when_both_signals_match(self) -> None:
         score = calculate_combined_score(0.9, 0.9, 50)

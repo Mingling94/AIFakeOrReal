@@ -72,8 +72,12 @@ async def check(
             # Analysis failed (e.g. login wall); fall back to whatever we have.
             url_score = db.query(URLScore).filter(URLScore.url_hash == url_hash).first()
 
+    # Track how often this URL is checked (drives LLM fallback gating).
+    if url_score is not None:
+        url_score.check_count += 1
+        db.commit()
+
     if url_score is None:
-        # Never-seen URL and no analysis requested: report a neutral unknown.
         return CheckResponse(
             url=url,
             platform="generic",

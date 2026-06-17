@@ -18,6 +18,7 @@ class URLScore(Base):
     crowd_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     combined_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     vote_count: Mapped[int] = mapped_column(Integer, default=0)
+    check_count: Mapped[int] = mapped_column(Integer, default=0)
     platform: Mapped[str] = mapped_column(String(20), default="generic")
     content_type: Mapped[str] = mapped_column(String(20), default="unknown")
     last_analyzed: Mapped[datetime | None] = mapped_column(

@@ -10,6 +10,9 @@ from app.models.url import URLScore
 from app.services.cache import score_cache
 from app.services.comment_signal import detect_ai_accusations
 from app.services.detection import FetchError, TextAnalyzer
+from app.services.llm_fallback import llm_assess, should_use_llm
+from app.services.structure_signal import detect_ai_structure
+from app.services.vocabulary_signal import detect_ai_vocabulary
 from app.services.scoring import (
     calculate_combined_score,
     extract_domain,
@@ -52,25 +55,71 @@ async def perform_analysis(
     url_score = _get_or_create(db, url)
     if content is None:
         content = await extract_content(url)
-    analysis = text_analyzer.analyze_text(content.text)
+    stylometric = text_analyzer.analyze_text(content.text)
+    vocab = detect_ai_vocabulary(content.text)
+    structure = detect_ai_structure(content.text)
 
-    # Comment accusations ("this is AI generated") are a strong signal. Only
-    # scan the *comments* — not the article body, because a news article
-    # *about* AI will legitimately contain phrases like "AI generated".
     comment_text = "\n".join(content.comments)
     accusation = detect_ai_accusations(comment_text)
-    analysis["comment_signal"] = {
-        "triggered": accusation.triggered,
-        "strong_hits": accusation.strong_hits,
-        "weak_hits": accusation.weak_hits,
-        "score": accusation.score,
-        "examples": accusation.examples,
+
+    # Build the combined analysis dict with all signal details.
+    analysis = {
+        **stylometric,
+        "vocabulary_signal": {
+            "triggered": vocab.triggered,
+            "tier1_count": vocab.tier1_count,
+            "tier2_count": vocab.tier2_count,
+            "phrase_count": vocab.phrase_count,
+            "density": vocab.density,
+            "score": vocab.score,
+            "examples": vocab.examples,
+        },
+        "structure_signal": {
+            "triggered": structure.triggered,
+            "flags": structure.flags,
+            "flag_count": structure.flag_count,
+            "score": structure.score,
+        },
+        "comment_signal": {
+            "triggered": accusation.triggered,
+            "strong_hits": accusation.strong_hits,
+            "weak_hits": accusation.weak_hits,
+            "score": accusation.score,
+            "examples": accusation.examples,
+        },
     }
 
-    ai_score = analysis["overall"]
+    # Weighted combination of all heuristic signals. Vocabulary and structure
+    # detectors are derived from the "How Not to Sound Like AI" checklist and
+    # are more reliable than the statistical stylometric baseline.
+    ai_score = (
+        0.15 * stylometric["overall"]
+        + 0.35 * vocab.score
+        + 0.30 * structure.score
+        + 0.20 * accusation.score
+    )
+    ai_score = max(0.0, min(1.0, ai_score))
+
+    # A strong accusation signal still acts as a floor.
     if accusation.triggered:
-        # A clear crowd accusation outweighs the weak stylometric estimate.
         ai_score = max(ai_score, accusation.score)
+
+    # LLM fallback: for high-traffic content where heuristics are uncertain,
+    # optionally call an LLM for a second opinion. Expensive; gated by config.
+    llm_result = None
+    if should_use_llm(ai_score, url_score.check_count):
+        llm_result = await llm_assess(content.text)
+        if llm_result:
+            llm_conf = llm_result.get("confidence", 0.5)
+            llm_verdict = llm_result.get("verdict", "mixed")
+            llm_score = {"human": 0.1, "mixed": 0.5, "ai_generated": 0.9}.get(
+                llm_verdict, 0.5
+            ) * llm_conf
+            # Blend: 60% heuristic, 40% LLM when LLM is invoked.
+            ai_score = 0.6 * ai_score + 0.4 * llm_score
+            ai_score = max(0.0, min(1.0, ai_score))
+    analysis["llm_fallback"] = llm_result
+    analysis["overall"] = round(ai_score, 4)
 
     url_score.ai_score = ai_score
     url_score.platform = content.platform

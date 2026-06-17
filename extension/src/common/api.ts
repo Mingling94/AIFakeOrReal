@@ -1,6 +1,7 @@
 import type {
   AnalysisResult,
   ContentData,
+  ReportRequest,
   ScoreResponse,
   Token,
   UserStats,
@@ -82,5 +83,9 @@ export const api = {
 
   getUserStats(): Promise<UserStats> {
     return request("/auth/me");
+  },
+
+  reportIncorrect(report: ReportRequest): Promise<void> {
+    return request("/report", { method: "POST", body: JSON.stringify(report) });
   },
 };

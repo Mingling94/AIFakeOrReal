@@ -10,8 +10,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
-    AI_WEIGHT_LOW_VOTES: float = 0.8
-    AI_WEIGHT_HIGH_VOTES: float = 0.4
+    # Combined score weights: AI heuristics dominate; crowd votes are a minor
+    # supplementary signal. Even with many votes, AI analysis retains 75%.
+    AI_WEIGHT_LOW_VOTES: float = 0.95
+    AI_WEIGHT_HIGH_VOTES: float = 0.75
     VOTE_THRESHOLD_LOW: int = 10
     VOTE_THRESHOLD_HIGH: int = 100
 
@@ -37,6 +39,14 @@ class Settings(BaseSettings):
     MAX_FETCH_BYTES: int = 2_000_000
     # Block fetches to private/loopback/link-local addresses (SSRF guard).
     BLOCK_PRIVATE_FETCH: bool = True
+
+    # LLM fallback: expensive AI-based analysis for high-traffic, uncertain content.
+    # Only called when local heuristics land in the uncertain range (0.3-0.7) AND
+    # the URL has been checked more than LLM_VISIT_THRESHOLD times.
+    LLM_FALLBACK_ENABLED: bool = False
+    LLM_VISIT_THRESHOLD: int = 50
+    LLM_API_KEY: str = ""
+    LLM_MODEL: str = "claude-sonnet-4-20250514"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

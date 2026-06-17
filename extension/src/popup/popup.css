@@ -278,6 +278,30 @@ body {
   border-radius: 50%;
 }
 
+/* Report Incorrect */
+.report-section {
+  text-align: center;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.report-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.report-btn:hover { color: #333; }
+
+.reported {
+  font-size: 12px;
+  color: #4caf50;
+}
+
 /* No Data / Analyze CTA */
 .no-data {
   text-align: center;

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from app.models.api_key import APIKey
+from app.models.report import Report
 from app.models.url import URLScore
 from app.models.user import User
 from app.models.vote import Vote
 
-__all__ = ["APIKey", "URLScore", "User", "Vote"]
+__all__ = ["APIKey", "Report", "URLScore", "User", "Vote"]

@@ -64,6 +64,12 @@ export interface Token {
   token_type: string;
 }
 
+export interface ReportRequest {
+  url: string;
+  reported_verdict: VoteType;
+  reason?: string;
+}
+
 // Content extracted from the page by the content script and sent to the
 // backend's /analyze/content endpoint.
 export interface ContentData {
