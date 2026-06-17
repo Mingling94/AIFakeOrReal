@@ -121,9 +121,9 @@ class TextAnalyzer:
         if len(words) < 10:
             return 0.5
 
-        unique = len(set(words))
-        sample = min(len(words), 500)
-        ttr = unique / sample if sample > 0 else 0.5
+        sample_size = min(len(words), 500)
+        sample = words[:sample_size]
+        ttr = len(set(sample)) / sample_size
 
         return max(0.0, min(1.0, ttr))
 

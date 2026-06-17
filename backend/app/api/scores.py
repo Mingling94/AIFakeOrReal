@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 

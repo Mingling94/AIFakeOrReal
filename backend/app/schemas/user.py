@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from pydantic import BaseModel, EmailStr
 
 
@@ -14,7 +16,7 @@ class UserLogin(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: str
+    id: uuid.UUID
     email: str
     reputation: float
     total_votes: int

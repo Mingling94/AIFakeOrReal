@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from collections.abc import Generator
 
 from fastapi import Depends, HTTPException, status
@@ -43,7 +44,7 @@ def get_current_user(
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token.")
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
     if user is None:
         raise HTTPException(status_code=401, detail="User not found.")
     return user
@@ -67,4 +68,4 @@ def get_optional_user(
     except JWTError:
         return None
 
-    return db.query(User).filter(User.id == user_id).first()
+    return db.query(User).filter(User.id == uuid.UUID(user_id)).first()
