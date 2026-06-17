@@ -10,20 +10,20 @@ interface CachedScore {
 
 function setBadge(tabId: number, score: number | null): void {
   if (score === null) {
-    ext.action.setBadgeText({ tabId, text: "?" });
-    ext.action.setBadgeBackgroundColor({ tabId, color: "#9e9e9e" });
+    ext.action.setBadgeText({ tabId, text: "—" });
+    ext.action.setBadgeBackgroundColor({ tabId, color: "#94a3b8" });
     return;
   }
   const pct = Math.round(score * 100);
   if (pct <= 30) {
-    ext.action.setBadgeText({ tabId, text: "H" });
-    ext.action.setBadgeBackgroundColor({ tabId, color: "#4caf50" });
+    ext.action.setBadgeText({ tabId, text: "✓" });
+    ext.action.setBadgeBackgroundColor({ tabId, color: "#22c55e" });
   } else if (pct <= 70) {
-    ext.action.setBadgeText({ tabId, text: "M" });
-    ext.action.setBadgeBackgroundColor({ tabId, color: "#ff9800" });
+    ext.action.setBadgeText({ tabId, text: "?" });
+    ext.action.setBadgeBackgroundColor({ tabId, color: "#f59e0b" });
   } else {
-    ext.action.setBadgeText({ tabId, text: "A" });
-    ext.action.setBadgeBackgroundColor({ tabId, color: "#f44336" });
+    ext.action.setBadgeText({ tabId, text: "AI" });
+    ext.action.setBadgeBackgroundColor({ tabId, color: "#ef4444" });
   }
 }
 

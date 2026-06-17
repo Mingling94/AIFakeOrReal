@@ -6,6 +6,7 @@ export interface ScoreResponse {
   crowd_score: number | null;
   combined_score: number | null;
   vote_count: number;
+  platform: string;
   content_type: string;
   last_analyzed: string | null;
   confidence: "none" | "low" | "medium" | "high";
