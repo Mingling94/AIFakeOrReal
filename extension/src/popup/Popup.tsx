@@ -7,6 +7,7 @@ import type {
 } from "../common/types";
 import { api } from "../common/api";
 import { ext } from "../common/browser";
+import { shareVerdict } from "./share-card";
 import "./popup.css";
 
 interface ExtractResponse {
@@ -130,6 +131,8 @@ export function Popup() {
   const [submitting, setSubmitting] = useState(false);
   const [reported, setReported] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [shared, setShared] = useState(false);
+  const [firstRun, setFirstRun] = useState(false);
 
   const fetchData = useCallback(async (pageUrl: string) => {
     setLoading(true);
@@ -146,6 +149,12 @@ export function Popup() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    ext.storage.local.get("firstRunDone").then((r) => {
+      if (!r.firstRunDone) setFirstRun(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -245,7 +254,29 @@ export function Popup() {
         <div className="verdict-word">{verdictWord(combined)}</div>
         {pct && <div className="verdict-pct">{pct}</div>}
         {domain && <div className="verdict-domain">{domain}</div>}
+        {url && combined !== null && (
+          <button
+            className="share-btn"
+            onClick={async () => {
+              await shareVerdict(verdictWord(combined), Math.round(combined * 100), domain, url);
+              setShared(true);
+              setTimeout(() => setShared(false), 2000);
+            }}
+          >
+            {shared ? "Copied!" : "Share"}
+          </button>
+        )}
       </div>
+
+      {/* First-run welcome */}
+      {firstRun && (
+        <div className="first-run">
+          <span>I check if content is AI-generated. Browse normally — I'll tell you.</span>
+          <button onClick={() => { setFirstRun(false); ext.storage.local.set({ firstRunDone: true }); }}>
+            Got it
+          </button>
+        </div>
+      )}
 
       {/* Zone B: Signal Chips */}
       <div className="signals-section">

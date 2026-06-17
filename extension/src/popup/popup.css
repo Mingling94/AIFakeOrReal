@@ -48,6 +48,25 @@ body {
   white-space: nowrap;
 }
 
+.share-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.share-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
 /* Zone B: Signal Chips */
 .signals-section {
   padding: 12px 16px;
@@ -207,6 +226,29 @@ body {
   font-size: 11px;
   color: #94a3b8;
   margin-top: 4px;
+}
+
+/* First-run welcome */
+.first-run {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 8px 16px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.first-run button {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 /* States */
