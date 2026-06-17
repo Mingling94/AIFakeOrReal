@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Popup Preview (dev harness)</title>
+  <style>
+    body { margin: 0; background: #ddd; font-family: sans-serif; }
+    .frame { width: 360px; margin: 24px auto; box-shadow: 0 4px 24px rgba(0,0,0,.25);
+             border-radius: 8px; overflow: hidden; background: #fafafa; }
+    .note { width: 360px; margin: 8px auto; font-size: 12px; color: #555; }
+  </style>
+  <!--
+    Dev-only harness: shims the chrome.* APIs the popup uses and loads the REAL
+    built popup bundle (../dist/popup.js) against a running backend. Lets us
+    exercise the actual popup UI in a plain browser. Not shipped in the extension.
+  -->
+  <script>
+    // Point the API client at the local test backend before the bundle loads.
+    localStorage.setItem("aifakeorreal_api_url", "http://127.0.0.1:8031/api/v1");
+
+    const TEST_URL = new URLSearchParams(location.search).get("pageUrl")
+      || "http://example.com/sample-article";
+
+    window.chrome = {
+      tabs: {
+        query: (_opts, cb) => cb([{ id: 1, url: TEST_URL }]),
+      },
+      runtime: {
+        sendMessage: (msg) => { console.log("[shim] sendMessage", msg); },
+        onMessage: { addListener: () => {} },
+      },
+      storage: {
+        local: {
+          get: (_keys, cb) => cb({}),
+          set: (_v, cb) => cb && cb(),
+          remove: (_k, cb) => cb && cb(),
+        },
+      },
+    };
+  </script>
+</head>
+<body>
+  <div class="note">Dev harness — real popup bundle, test backend. Page under test: <span id="u"></span></div>
+  <div class="frame"><div id="root"></div></div>
+  <script>
+    document.getElementById("u").textContent =
+      new URLSearchParams(location.search).get("pageUrl") || "http://example.com/sample-article";
+  </script>
+  <script src="../dist/popup.js"></script>
+</body>
+</html>
