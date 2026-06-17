@@ -91,6 +91,9 @@ ext.runtime.onMessage.addListener(
         }
       });
     }
+    if (message?.type === "BADGE_CLICKED" && message.url) {
+      ext.storage.local.set({ lastBadgeClickUrl: message.url });
+    }
     return false;
   }
 );

@@ -1,3 +1,12 @@
+export interface SignalSummary {
+  vocabulary_triggered: boolean;
+  vocabulary_tier1_count: number;
+  structure_triggered: boolean;
+  structure_flags: string[];
+  comment_triggered: boolean;
+  comment_examples: string[];
+}
+
 export interface ScoreResponse {
   url_hash: string;
   url: string;
@@ -10,6 +19,7 @@ export interface ScoreResponse {
   content_type: string;
   last_analyzed: string | null;
   confidence: "none" | "low" | "medium" | "high";
+  signals: SignalSummary | null;
 }
 
 export type VoteType = "human" | "mixed" | "ai_generated";

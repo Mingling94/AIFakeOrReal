@@ -46,6 +46,17 @@ export async function setAutoCheck(enabled: boolean): Promise<void> {
   await ext.storage.local.set({ [AUTO_CHECK_KEY]: enabled });
 }
 
+const OVERLAYS_KEY = "overlaysEnabled";
+
+export async function getOverlaysEnabled(): Promise<boolean> {
+  const result = await ext.storage.local.get(OVERLAYS_KEY);
+  return result[OVERLAYS_KEY] !== false; // on by default
+}
+
+export async function setOverlaysEnabled(enabled: boolean): Promise<void> {
+  await ext.storage.local.set({ [OVERLAYS_KEY]: enabled });
+}
+
 export async function getToken(): Promise<string | null> {
   const result = await ext.storage.local.get(TOKEN_KEY);
   return (result[TOKEN_KEY] as string) || null;

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Float, Integer, String, Text
+from sqlalchemy.types import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -21,6 +22,7 @@ class URLScore(Base):
     check_count: Mapped[int] = mapped_column(Integer, default=0)
     platform: Mapped[str] = mapped_column(String(20), default="generic")
     content_type: Mapped[str] = mapped_column(String(20), default="unknown")
+    analysis_signals: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     last_analyzed: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

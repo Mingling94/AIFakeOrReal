@@ -124,6 +124,14 @@ async def perform_analysis(
     url_score.ai_score = ai_score
     url_score.platform = content.platform
     url_score.content_type = content.content_type
+    url_score.analysis_signals = {
+        "vocabulary_triggered": vocab.triggered,
+        "vocabulary_tier1_count": vocab.tier1_count,
+        "structure_triggered": structure.triggered,
+        "structure_flags": structure.flags,
+        "comment_triggered": accusation.triggered,
+        "comment_examples": accusation.examples[:3],
+    }
     url_score.last_analyzed = datetime.now(timezone.utc)
     url_score.combined_score = calculate_combined_score(
         url_score.ai_score, url_score.crowd_score, url_score.vote_count

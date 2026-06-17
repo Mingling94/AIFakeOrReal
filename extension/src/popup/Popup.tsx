@@ -37,23 +37,76 @@ function confidenceText(confidence: string, voteCount: number): string {
   return parts.join(" · ");
 }
 
-function buildSignalChips(score: ScoreResponse): Array<{ label: string; type: "positive" | "negative" | "neutral" }> {
-  const chips: Array<{ label: string; type: "positive" | "negative" | "neutral" }> = [];
-  if (score.combined_score === null) {
-    chips.push({ label: "Not yet analyzed", type: "neutral" });
+type Chip = { label: string; type: "positive" | "negative" | "neutral" };
+
+const FLAG_LABELS: Record<string, string> = {
+  no_contractions: "No contractions detected",
+  em_dash_overuse: "Em-dash overuse",
+  repetitive_sentence_starters: "Repetitive sentence starters",
+  tricolon_repetition: "Tricolon repetition",
+  uniform_paragraph_length: "Uniform paragraph length",
+  no_personal_voice: "No personal voice",
+  excessive_hedging: "Excessive hedging",
+  not_only_but_also_overuse: '"Not only X but also Y" overuse',
+};
+
+function buildSignalChips(score: ScoreResponse): Chip[] {
+  const chips: Chip[] = [];
+  const sig = score.signals;
+
+  if (!sig && score.ai_score === null) {
+    chips.push({ label: "Not yet scanned", type: "neutral" });
     return chips;
   }
-  if (score.ai_score !== null) {
+
+  if (sig) {
+    // Vocabulary signals
+    if (sig.vocabulary_triggered) {
+      const label =
+        sig.vocabulary_tier1_count > 5
+          ? `Heavy AI vocabulary (${sig.vocabulary_tier1_count} words)`
+          : "Some AI-typical words";
+      chips.push({ label, type: "negative" });
+    } else {
+      chips.push({ label: "Natural vocabulary", type: "positive" });
+    }
+
+    // Structure signals
+    if (sig.structure_triggered) {
+      const flag = sig.structure_flags[0];
+      chips.push({
+        label: FLAG_LABELS[flag] || "Uniform structure",
+        type: "negative",
+      });
+      if (sig.structure_flags.length > 1) {
+        chips.push({
+          label: `+${sig.structure_flags.length - 1} more structural flags`,
+          type: "negative",
+        });
+      }
+    } else {
+      chips.push({ label: "Varied writing style", type: "positive" });
+    }
+
+    // Comment signals
+    if (sig.comment_triggered) {
+      chips.push({
+        label: `Comments call it AI (${sig.comment_examples.length})`,
+        type: "negative",
+      });
+    }
+  } else if (score.ai_score !== null) {
+    // Analysis ran but no signals stored (legacy data)
     if (score.ai_score <= 0.3) {
       chips.push({ label: "Natural vocabulary", type: "positive" });
-      chips.push({ label: "Varied writing style", type: "positive" });
-    } else if (score.ai_score <= 0.7) {
-      chips.push({ label: "Some AI patterns", type: "neutral" });
+    } else if (score.ai_score > 0.7) {
+      chips.push({ label: "AI patterns detected", type: "negative" });
     } else {
-      chips.push({ label: "AI vocabulary detected", type: "negative" });
-      chips.push({ label: "Uniform structure", type: "negative" });
+      chips.push({ label: "Some AI patterns", type: "neutral" });
     }
   }
+
+  // Crowd signal (always secondary)
   if (score.vote_count > 0 && score.crowd_score !== null) {
     if (score.crowd_score > 0.7) {
       chips.push({ label: "Users flagged as AI", type: "negative" });
@@ -61,6 +114,7 @@ function buildSignalChips(score: ScoreResponse): Array<{ label: string; type: "p
       chips.push({ label: "Users say it's real", type: "positive" });
     }
   }
+
   return chips;
 }
 

@@ -5,7 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.models.url import URLScore
-from app.schemas.url import BatchScoreRequest, BatchScoreResponse, ScoreResponse
+from app.schemas.url import (
+    BatchScoreRequest,
+    BatchScoreResponse,
+    ScoreResponse,
+    SignalSummary,
+)
 from app.services.cache import score_cache
 from app.services.scoring import (
     extract_domain,
@@ -31,6 +36,11 @@ def _url_to_response(url_score: URLScore) -> ScoreResponse:
         content_type=url_score.content_type,
         last_analyzed=url_score.last_analyzed,
         confidence=score_to_confidence(url_score.vote_count, url_score.ai_score),
+        signals=(
+            SignalSummary(**url_score.analysis_signals)
+            if url_score.analysis_signals
+            else None
+        ),
     )
 
 

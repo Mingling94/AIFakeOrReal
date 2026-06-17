@@ -5,8 +5,10 @@ import {
   ensureApiPermission,
   getApiUrl,
   getAutoCheck,
+  getOverlaysEnabled,
   setApiUrl as saveApiUrl,
   setAutoCheck as saveAutoCheck,
+  setOverlaysEnabled as saveOverlays,
   setToken,
 } from "../common/config";
 import type { UserStats } from "../common/types";
@@ -50,6 +52,7 @@ const styles: Record<string, React.CSSProperties> = {
 
 export function Options() {
   const [autoCheck, setAutoCheck] = useState(true);
+  const [overlays, setOverlays] = useState(true);
   const [apiUrl, setApiUrl] = useState(DEFAULT_API_URL);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,6 +61,7 @@ export function Options() {
 
   useEffect(() => {
     getAutoCheck().then(setAutoCheck);
+    getOverlaysEnabled().then(setOverlays);
     getApiUrl().then(setApiUrl);
     api.getUserStats().then(setUser).catch(() => {});
   }, []);
@@ -120,6 +124,17 @@ export function Options() {
             onChange={(e) => handleAutoCheckChange(e.target.checked)}
           />
           Automatically check pages on load
+        </label>
+        <label style={styles.label}>
+          <input
+            type="checkbox"
+            checked={overlays}
+            onChange={(e) => {
+              setOverlays(e.target.checked);
+              void saveOverlays(e.target.checked);
+            }}
+          />
+          Show in-page AI indicators on social media
         </label>
       </div>
 
