@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     LLM_FALLBACK_ENABLED: bool = False
     LLM_VISIT_THRESHOLD: int = 50
     LLM_API_KEY: str = ""
-    LLM_MODEL: str = "claude-sonnet-4-20250514"
+    LLM_MODEL: str = "gpt-3.5-turbo"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

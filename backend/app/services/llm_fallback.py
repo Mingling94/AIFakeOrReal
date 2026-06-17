@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 
 import httpx
@@ -24,11 +25,11 @@ _SYSTEM_PROMPT = (
 
 
 async def llm_assess(text: str) -> dict | None:
-    """Call an LLM to assess whether text is AI-generated.
+    """Call OpenAI's ChatGPT API to assess whether text is AI-generated.
 
+    Uses the free-tier-compatible gpt-3.5-turbo model by default.
     Returns {"verdict": str, "confidence": float, "reasoning": str} or None
-    if the LLM is disabled, unconfigured, or the call fails. This is expensive
-    and should only be called for high-traffic, uncertain content.
+    if the LLM is disabled, unconfigured, or the call fails.
     """
     if not settings.LLM_FALLBACK_ENABLED or not settings.LLM_API_KEY:
         return None
@@ -38,26 +39,24 @@ async def llm_assess(text: str) -> dict | None:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                "https://api.anthropic.com/v1/messages",
+                "https://api.openai.com/v1/chat/completions",
                 headers={
-                    "x-api-key": settings.LLM_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
+                    "Authorization": f"Bearer {settings.LLM_API_KEY}",
+                    "Content-Type": "application/json",
                 },
                 json={
                     "model": settings.LLM_MODEL,
                     "max_tokens": 200,
-                    "system": _SYSTEM_PROMPT,
+                    "temperature": 0.0,
                     "messages": [
-                        {"role": "user", "content": f"Assess this text:\n\n{sample}"}
+                        {"role": "system", "content": _SYSTEM_PROMPT},
+                        {"role": "user", "content": f"Assess this text:\n\n{sample}"},
                     ],
                 },
             )
             resp.raise_for_status()
             data = resp.json()
-            import json
-
-            result_text = data["content"][0]["text"]
+            result_text = data["choices"][0]["message"]["content"]
             return json.loads(result_text)
     except Exception as exc:
         logger.warning("LLM fallback failed: %s", exc)
