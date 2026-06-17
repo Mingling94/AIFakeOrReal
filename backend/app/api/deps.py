@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db.session import SessionLocal
 from app.models.user import User
+from app.services.ratelimit import rate_limiter
 
 security = HTTPBearer(auto_error=False)
 
@@ -21,6 +22,31 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+def rate_limit(category: str, limit_attr: str) -> Callable[[Request], None]:
+    """Build a dependency enforcing a per-client-IP limit.
+
+    `limit_attr` names the settings field holding the limit, read live so it
+    can be tuned (e.g. in tests) without rebuilding the dependency.
+    """
+
+    def dependency(request: Request) -> None:
+        if not settings.RATE_LIMIT_ENABLED:
+            return
+        client = request.client.host if request.client else "unknown"
+        limit = getattr(settings, limit_attr)
+        allowed, retry_after = rate_limiter.hit(
+            f"{category}:{client}", limit, settings.RATE_LIMIT_WINDOW_SECONDS
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Rate limit exceeded. Please slow down and try again.",
+                headers={"Retry-After": str(retry_after)},
+            )
+
+    return dependency
 
 
 def get_current_user(

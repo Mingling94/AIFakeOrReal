@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
-
 import httpx
 import pytest
 
-from app.services.detection import ContentExtractor, TextAnalyzer
+from app.services.detection import (
+    ContentExtractor,
+    FetchError,
+    TextAnalyzer,
+    _assert_public_host,
+)
 
 
 class TestTextAnalyzer:
@@ -158,58 +161,48 @@ class TestTextAnalyzerSentenceUniformity:
         assert score < 0.5
 
 
+def _extractor_returning(html: str, status: int = 200) -> ContentExtractor:
+    """Build a ContentExtractor whose HTTP layer is a fixed mock response."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, html=html)
+
+    return ContentExtractor(transport=httpx.MockTransport(handler))
+
+
 class TestContentExtractor:
+    """SSRF guard is disabled here so we can use example.com without real DNS."""
+
     def setup_method(self) -> None:
-        self.extractor = ContentExtractor()
+        from app.services import detection
+
+        detection.settings.BLOCK_PRIVATE_FETCH = False
+
+    def teardown_method(self) -> None:
+        from app.services import detection
+
+        detection.settings.BLOCK_PRIVATE_FETCH = True
 
     @pytest.mark.asyncio
     async def test_should_extract_title_and_text(self) -> None:
-        html = """
-        <html><head><title>Test Page</title></head>
-        <body><main><p>Hello world content here.</p></main></body></html>
-        """
-        mock_response = AsyncMock()
-        mock_response.text = html
-        mock_response.raise_for_status = lambda: None
-
-        with patch("app.services.detection.httpx.AsyncClient") as mock_client:
-            instance = AsyncMock()
-            instance.get.return_value = mock_response
-            instance.__aenter__.return_value = instance
-            instance.__aexit__.return_value = None
-            mock_client.return_value = instance
-
-            result = await self.extractor.extract_from_url("http://example.com")
-
+        html = (
+            "<html><head><title>Test Page</title></head>"
+            "<body><main><p>Hello world content here.</p></main></body></html>"
+        )
+        result = await _extractor_returning(html).extract_from_url("http://example.com")
         assert result["title"] == "Test Page"
         assert "Hello world content here" in result["text"]
         assert result["word_count"] > 0
 
     @pytest.mark.asyncio
     async def test_should_strip_script_and_style_tags(self) -> None:
-        html = """
-        <html><head><title>Test</title></head>
-        <body>
-          <script>alert('evil')</script>
-          <style>.hidden{display:none}</style>
-          <nav>Navigation links</nav>
-          <main><p>Real content.</p></main>
-          <footer>Footer stuff</footer>
-        </body></html>
-        """
-        mock_response = AsyncMock()
-        mock_response.text = html
-        mock_response.raise_for_status = lambda: None
-
-        with patch("app.services.detection.httpx.AsyncClient") as mock_client:
-            instance = AsyncMock()
-            instance.get.return_value = mock_response
-            instance.__aenter__.return_value = instance
-            instance.__aexit__.return_value = None
-            mock_client.return_value = instance
-
-            result = await self.extractor.extract_from_url("http://example.com")
-
+        html = (
+            "<html><head><title>Test</title></head><body>"
+            "<script>alert('evil')</script><style>.h{display:none}</style>"
+            "<nav>Navigation links</nav><main><p>Real content.</p></main>"
+            "<footer>Footer stuff</footer></body></html>"
+        )
+        result = await _extractor_returning(html).extract_from_url("http://example.com")
         assert "alert" not in result["text"]
         assert "Navigation links" not in result["text"]
         assert "Footer stuff" not in result["text"]
@@ -217,58 +210,74 @@ class TestContentExtractor:
 
     @pytest.mark.asyncio
     async def test_should_extract_image_urls(self) -> None:
-        html = """
-        <html><body>
-          <img src="http://example.com/img1.png" />
-          <img src="http://example.com/img2.jpg" />
-          <img src="/relative/img.png" />
-        </body></html>
-        """
-        mock_response = AsyncMock()
-        mock_response.text = html
-        mock_response.raise_for_status = lambda: None
-
-        with patch("app.services.detection.httpx.AsyncClient") as mock_client:
-            instance = AsyncMock()
-            instance.get.return_value = mock_response
-            instance.__aenter__.return_value = instance
-            instance.__aexit__.return_value = None
-            mock_client.return_value = instance
-
-            result = await self.extractor.extract_from_url("http://example.com")
-
+        html = (
+            '<html><body><img src="http://example.com/img1.png" />'
+            '<img src="http://example.com/img2.jpg" />'
+            '<img src="/relative/img.png" /></body></html>'
+        )
+        result = await _extractor_returning(html).extract_from_url("http://example.com")
         assert len(result["image_urls"]) == 2
         assert "http://example.com/img1.png" in result["image_urls"]
 
     @pytest.mark.asyncio
     async def test_should_truncate_text_at_50000_chars(self) -> None:
-        long_text = "word " * 20000
-        html = f"<html><body><p>{long_text}</p></body></html>"
-        mock_response = AsyncMock()
-        mock_response.text = html
-        mock_response.raise_for_status = lambda: None
-
-        with patch("app.services.detection.httpx.AsyncClient") as mock_client:
-            instance = AsyncMock()
-            instance.get.return_value = mock_response
-            instance.__aenter__.return_value = instance
-            instance.__aexit__.return_value = None
-            mock_client.return_value = instance
-
-            result = await self.extractor.extract_from_url("http://example.com")
-
+        html = "<html><body><p>" + ("word " * 20000) + "</p></body></html>"
+        result = await _extractor_returning(html).extract_from_url("http://example.com")
         assert len(result["text"]) <= 50000
 
     @pytest.mark.asyncio
-    async def test_should_raise_on_http_error(self) -> None:
-        with patch("app.services.detection.httpx.AsyncClient") as mock_client:
-            instance = AsyncMock()
-            instance.get.side_effect = httpx.HTTPStatusError(
-                "Not Found", request=AsyncMock(), response=AsyncMock(status_code=404)
-            )
-            instance.__aenter__.return_value = instance
-            instance.__aexit__.return_value = None
-            mock_client.return_value = instance
+    async def test_should_raise_fetcherror_on_http_error(self) -> None:
+        extractor = _extractor_returning("Not Found", status=404)
+        with pytest.raises(FetchError):
+            await extractor.extract_from_url("http://example.com")
 
-            with pytest.raises(Exception):
-                await self.extractor.extract_from_url("http://nonexistent.example.com")
+    @pytest.mark.asyncio
+    async def test_should_raise_fetcherror_when_body_exceeds_cap(self) -> None:
+        from app.services import detection
+
+        original = detection.settings.MAX_FETCH_BYTES
+        detection.settings.MAX_FETCH_BYTES = 100
+        try:
+            html = "<html><body>" + ("x" * 5000) + "</body></html>"
+            with pytest.raises(FetchError, match="maximum fetch size"):
+                await _extractor_returning(html).extract_from_url("http://example.com")
+        finally:
+            detection.settings.MAX_FETCH_BYTES = original
+
+
+class TestAssertPublicHost:
+    def test_should_reject_loopback(self) -> None:
+        with pytest.raises(FetchError):
+            _assert_public_host("127.0.0.1")
+
+    def test_should_reject_private_range(self) -> None:
+        with pytest.raises(FetchError):
+            _assert_public_host("10.0.0.1")
+
+    def test_should_reject_link_local_metadata_ip(self) -> None:
+        with pytest.raises(FetchError):
+            _assert_public_host("169.254.169.254")
+
+    def test_should_allow_public_ip(self) -> None:
+        _assert_public_host("8.8.8.8")  # should not raise
+
+    def test_should_noop_when_disabled(self) -> None:
+        from app.services import detection
+
+        detection.settings.BLOCK_PRIVATE_FETCH = False
+        try:
+            _assert_public_host("127.0.0.1")  # should not raise
+        finally:
+            detection.settings.BLOCK_PRIVATE_FETCH = True
+
+
+class TestExtractorSsrf:
+    @pytest.mark.asyncio
+    async def test_should_block_loopback_url(self) -> None:
+        with pytest.raises(FetchError):
+            await ContentExtractor().extract_from_url("http://127.0.0.1/admin")
+
+    @pytest.mark.asyncio
+    async def test_should_reject_non_http_scheme(self) -> None:
+        with pytest.raises(FetchError):
+            await ContentExtractor().extract_from_url("file:///etc/passwd")

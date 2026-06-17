@@ -1,13 +1,18 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.models.url import URLScore
 from app.schemas.url import BatchScoreRequest, BatchScoreResponse, ScoreResponse
 from app.services.cache import score_cache
-from app.services.scoring import extract_domain, hash_url, score_to_confidence
+from app.services.scoring import (
+    extract_domain,
+    hash_url,
+    score_to_confidence,
+    validate_url,
+)
 
 router = APIRouter(tags=["scores"])
 
@@ -58,6 +63,10 @@ def get_score(
     url: str = Query(..., description="URL to look up"),
     db: Session = Depends(get_db),
 ) -> ScoreResponse:
+    try:
+        validate_url(url)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     return _cached_response(db, url)
 
 
@@ -66,5 +75,11 @@ def batch_scores(
     body: BatchScoreRequest,
     db: Session = Depends(get_db),
 ) -> BatchScoreResponse:
-    results = [_cached_response(db, url) for url in body.urls[:50]]
+    results = []
+    for url in body.urls[:50]:
+        try:
+            validate_url(url)
+        except ValueError:
+            continue  # skip malformed URLs rather than failing the batch
+        results.append(_cached_response(db, url))
     return BatchScoreResponse(scores=results)

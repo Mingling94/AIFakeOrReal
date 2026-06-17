@@ -6,6 +6,21 @@ from urllib.parse import urlparse, urlunparse
 from app.config import settings
 
 
+def validate_url(url: str) -> None:
+    """Validate a user-supplied URL, raising ValueError if unacceptable."""
+    if not url or not url.strip():
+        raise ValueError("URL must not be empty.")
+    if len(url) > settings.MAX_URL_LENGTH:
+        raise ValueError(
+            f"URL exceeds the maximum length of {settings.MAX_URL_LENGTH} characters."
+        )
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("URL must use the http or https scheme.")
+    if not parsed.netloc:
+        raise ValueError("URL must include a host.")
+
+
 def normalize_url(url: str) -> str:
     parsed = urlparse(url)
     normalized = urlunparse(

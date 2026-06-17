@@ -1,26 +1,67 @@
 from __future__ import annotations
 
+import ipaddress
 import math
 import re
+import socket
 from collections import Counter
+from urllib.parse import urlparse
 
 import httpx
 from bs4 import BeautifulSoup
+
+from app.config import settings
+
+
+class FetchError(Exception):
+    """Raised when a URL cannot be safely fetched."""
+
+
+def _assert_public_host(host: str) -> None:
+    """Block fetches to private/loopback/link-local/reserved addresses (SSRF guard)."""
+    if not settings.BLOCK_PRIVATE_FETCH:
+        return
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        raise FetchError(f"could not resolve host '{host}'") from exc
+
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        ):
+            raise FetchError(
+                f"refusing to fetch a non-public address ({ip}) for host '{host}'"
+            )
 
 
 class ContentExtractor:
     STRIP_TAGS = {"script", "style", "nav", "footer", "header", "aside", "noscript"}
 
-    async def extract_from_url(self, url: str) -> dict:
-        async with httpx.AsyncClient(
-            timeout=15.0,
-            follow_redirects=True,
-            headers={"User-Agent": "AIFakeOrReal/1.0"},
-        ) as client:
-            response = await client.get(url)
-            response.raise_for_status()
+    def __init__(self, transport: httpx.AsyncBaseTransport | None = None) -> None:
+        # `transport` lets tests inject httpx.MockTransport; production uses None.
+        self._transport = transport
 
-        soup = BeautifulSoup(response.text, "html.parser")
+    async def extract_from_url(self, url: str) -> dict:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise FetchError("URL must use the http or https scheme.")
+        if not parsed.hostname:
+            raise FetchError("URL must include a host.")
+        _assert_public_host(parsed.hostname)
+
+        try:
+            html = await self._fetch(url)
+        except httpx.HTTPError as exc:
+            raise FetchError(str(exc)) from exc
+
+        soup = BeautifulSoup(html, "html.parser")
 
         for tag in soup.find_all(self.STRIP_TAGS):
             tag.decompose()
@@ -43,6 +84,30 @@ class ContentExtractor:
             "image_urls": image_urls[:20],
             "word_count": len(text.split()),
         }
+
+    async def _fetch(self, url: str) -> str:
+        """Fetch a URL, capping the download at MAX_FETCH_BYTES."""
+        cap = settings.MAX_FETCH_BYTES
+        async with httpx.AsyncClient(
+            timeout=15.0,
+            follow_redirects=True,
+            headers={"User-Agent": "AIFakeOrReal/1.0"},
+            transport=self._transport,
+        ) as client:
+            async with client.stream("GET", url) as response:
+                response.raise_for_status()
+                chunks: list[bytes] = []
+                total = 0
+                exceeded = False
+                async for chunk in response.aiter_bytes():
+                    total += len(chunk)
+                    if total > cap:
+                        exceeded = True
+                        break
+                    chunks.append(chunk)
+        if exceeded:
+            raise FetchError(f"page exceeds the maximum fetch size of {cap} bytes")
+        return b"".join(chunks).decode("utf-8", errors="replace")
 
 
 class TextAnalyzer:

@@ -106,22 +106,39 @@ AIFakeOrReal/
 | Backend | Python 3.12, FastAPI, SQLAlchemy, Alembic |
 | Database | PostgreSQL 16, Redis 7 |
 | Auth | JWT (python-jose) + bcrypt |
-| AI Detection | Statistical NLP heuristics (numpy) |
+| AI Detection | Statistical NLP heuristics |
 | CI | GitHub Actions |
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | `/health` | Liveness/readiness probe (checks DB) |
 | GET | `/api/v1/score?url=` | Get combined score for a URL |
-| POST | `/api/v1/vote` | Submit a vote |
+| POST | `/api/v1/vote` | Submit a vote (rate limited) |
 | GET | `/api/v1/votes?url=` | Get vote breakdown |
-| POST | `/api/v1/analyze?url=` | Trigger AI analysis |
+| POST | `/api/v1/analyze?url=` | Trigger AI analysis (rate limited) |
 | GET | `/api/v1/analysis?url=` | Get analysis details |
 | POST | `/api/v1/scores/batch` | Batch score lookup |
 | POST | `/api/v1/auth/register` | Register |
 | POST | `/api/v1/auth/login` | Login |
 | GET | `/api/v1/auth/me` | Current user info |
+
+## Reliability & Security
+
+- **Rate limiting** — per-IP fixed-window limits on `vote` and `analyze`
+  (Redis-backed, in-memory fallback, fails open on backend errors).
+- **SSRF protection** — `/analyze` refuses to fetch private, loopback,
+  link-local, or cloud-metadata addresses, and only follows http(s).
+- **Input validation** — URLs must be http(s) and within a length cap.
+- **Bounded fetches** — page downloads are capped (default 2 MB).
+- **Caching** — score reads are cached in Redis with graceful degradation.
+- **Observability** — every response carries an `X-Request-ID`; access logs
+  include method, path, status, and latency.
+- **`/health`** — verifies database connectivity for load balancers/probes.
+
+All limits and toggles are configurable via environment variables
+(see `backend/.env.example`).
 
 ## License
 

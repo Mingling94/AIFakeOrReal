@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_optional_user
+from app.api.deps import get_db, get_optional_user, rate_limit
 from app.models.url import URLScore
 from app.models.user import User
 from app.models.vote import Vote
@@ -14,6 +14,7 @@ from app.services.scoring import (
     calculate_crowd_score,
     extract_domain,
     hash_url,
+    validate_url,
 )
 
 router = APIRouter(tags=["votes"])
@@ -35,12 +36,21 @@ def _recalculate_scores(db: Session, url_score: URLScore) -> None:
     )
 
 
-@router.post("/vote", response_model=VoteResponse)
+@router.post(
+    "/vote",
+    response_model=VoteResponse,
+    dependencies=[Depends(rate_limit("vote", "VOTE_RATE_LIMIT"))],
+)
 def submit_vote(
     body: VoteCreate,
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_user),
 ) -> VoteResponse:
+    try:
+        validate_url(body.url)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
     url_hash = hash_url(body.url)
 
     url_score = db.query(URLScore).filter(URLScore.url_hash == url_hash).first()

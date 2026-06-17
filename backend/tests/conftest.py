@@ -5,6 +5,8 @@ import os
 os.environ["DATABASE_URL"] = "sqlite://"
 # Disable the Redis-backed score cache so tests never touch a live Redis.
 os.environ["CACHE_TTL_SECONDS"] = "0"
+# Rate limiting off by default; the rate-limit tests enable it explicitly.
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 from collections.abc import Generator
 

@@ -24,6 +24,19 @@ class Settings(BaseSettings):
     # Score cache TTL in seconds (Redis). Set to 0 to disable caching.
     CACHE_TTL_SECONDS: int = 3600
 
+    # Rate limiting (per client IP, fixed window). Disable in tests.
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+    VOTE_RATE_LIMIT: int = 30
+    ANALYZE_RATE_LIMIT: int = 10
+
+    # Max URL length accepted by the API.
+    MAX_URL_LENGTH: int = 2048
+    # Max bytes downloaded when fetching a page for analysis.
+    MAX_FETCH_BYTES: int = 2_000_000
+    # Block fetches to private/loopback/link-local addresses (SSRF guard).
+    BLOCK_PRIVATE_FETCH: bool = True
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
