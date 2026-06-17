@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_db, get_optional_user, rate_limit
 from app.models.url import URLScore
@@ -25,7 +25,12 @@ ANONYMOUS_REPUTATION = 0.3
 
 def _recalculate_scores(db: Session, url_score: URLScore) -> None:
     """Recompute crowd and combined scores from all persisted votes."""
-    votes = db.query(Vote).filter(Vote.url_hash == url_score.url_hash).all()
+    votes = (
+        db.query(Vote)
+        .options(joinedload(Vote.user))  # avoid an N+1 lookup per voter
+        .filter(Vote.url_hash == url_score.url_hash)
+        .all()
+    )
     vote_data = [
         (v.vote, v.user.reputation if v.user else ANONYMOUS_REPUTATION) for v in votes
     ]

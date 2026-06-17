@@ -7,7 +7,7 @@ class TestRegister:
     def test_should_return_token(self, client: TestClient) -> None:
         resp = client.post(
             "/api/v1/auth/register",
-            json={"email": "new@example.com", "password": "pass123"},
+            json={"email": "new@example.com", "password": "password123"},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -17,11 +17,11 @@ class TestRegister:
     def test_should_reject_duplicate_email(self, client: TestClient) -> None:
         client.post(
             "/api/v1/auth/register",
-            json={"email": "dup@example.com", "password": "pass123"},
+            json={"email": "dup@example.com", "password": "password123"},
         )
         resp = client.post(
             "/api/v1/auth/register",
-            json={"email": "dup@example.com", "password": "pass456"},
+            json={"email": "dup@example.com", "password": "password456"},
         )
         assert resp.status_code == 400
         assert "already registered" in resp.json()["detail"]
@@ -29,9 +29,31 @@ class TestRegister:
     def test_should_reject_invalid_email(self, client: TestClient) -> None:
         resp = client.post(
             "/api/v1/auth/register",
-            json={"email": "not-an-email", "password": "pass123"},
+            json={"email": "not-an-email", "password": "password123"},
         )
         assert resp.status_code == 422
+
+    def test_should_reject_short_password(self, client: TestClient) -> None:
+        resp = client.post(
+            "/api/v1/auth/register",
+            json={"email": "short@example.com", "password": "abc"},
+        )
+        assert resp.status_code == 422
+
+    def test_should_handle_very_long_password(self, client: TestClient) -> None:
+        # Over bcrypt's 72-byte limit (but within the schema cap); must not 500,
+        # and login must still succeed via consistent truncation.
+        long_password = "A" * 100
+        reg = client.post(
+            "/api/v1/auth/register",
+            json={"email": "long@example.com", "password": long_password},
+        )
+        assert reg.status_code == 200
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"email": "long@example.com", "password": long_password},
+        )
+        assert login.status_code == 200
 
 
 class TestLogin:
@@ -40,11 +62,11 @@ class TestLogin:
     ) -> None:
         client.post(
             "/api/v1/auth/register",
-            json={"email": "login@example.com", "password": "pass123"},
+            json={"email": "login@example.com", "password": "password123"},
         )
         resp = client.post(
             "/api/v1/auth/login",
-            json={"email": "login@example.com", "password": "pass123"},
+            json={"email": "login@example.com", "password": "password123"},
         )
         assert resp.status_code == 200
         assert "access_token" in resp.json()
@@ -52,7 +74,7 @@ class TestLogin:
     def test_should_reject_wrong_password(self, client: TestClient) -> None:
         client.post(
             "/api/v1/auth/register",
-            json={"email": "wrong@example.com", "password": "pass123"},
+            json={"email": "wrong@example.com", "password": "password123"},
         )
         resp = client.post(
             "/api/v1/auth/login",
@@ -64,7 +86,7 @@ class TestLogin:
     def test_should_reject_nonexistent_user(self, client: TestClient) -> None:
         resp = client.post(
             "/api/v1/auth/login",
-            json={"email": "ghost@example.com", "password": "pass123"},
+            json={"email": "ghost@example.com", "password": "password123"},
         )
         assert resp.status_code == 401
 

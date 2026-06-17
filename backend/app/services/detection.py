@@ -41,6 +41,16 @@ def _assert_public_host(host: str) -> None:
             )
 
 
+def _assert_fetchable(url: str) -> None:
+    """Validate a URL's scheme and host before (and during) fetching."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise FetchError("URL must use the http or https scheme.")
+    if not parsed.hostname:
+        raise FetchError("URL must include a host.")
+    _assert_public_host(parsed.hostname)
+
+
 class ContentExtractor:
     STRIP_TAGS = {"script", "style", "nav", "footer", "header", "aside", "noscript"}
 
@@ -49,12 +59,7 @@ class ContentExtractor:
         self._transport = transport
 
     async def extract_from_url(self, url: str) -> dict:
-        parsed = urlparse(url)
-        if parsed.scheme not in ("http", "https"):
-            raise FetchError("URL must use the http or https scheme.")
-        if not parsed.hostname:
-            raise FetchError("URL must include a host.")
-        _assert_public_host(parsed.hostname)
+        _assert_fetchable(url)
 
         try:
             html = await self._fetch(url)
@@ -85,29 +90,50 @@ class ContentExtractor:
             "word_count": len(text.split()),
         }
 
+    MAX_REDIRECTS = 5
+
     async def _fetch(self, url: str) -> str:
-        """Fetch a URL, capping the download at MAX_FETCH_BYTES."""
+        """Fetch a URL, validating every redirect hop and capping the download.
+
+        Redirects are followed manually (not via httpx) so each hop's host is
+        re-checked against the SSRF guard — otherwise a public URL could
+        redirect to an internal address and bypass the initial check.
+        """
         cap = settings.MAX_FETCH_BYTES
+        current = url
         async with httpx.AsyncClient(
             timeout=15.0,
-            follow_redirects=True,
+            follow_redirects=False,
             headers={"User-Agent": "AIFakeOrReal/1.0"},
             transport=self._transport,
         ) as client:
-            async with client.stream("GET", url) as response:
-                response.raise_for_status()
-                chunks: list[bytes] = []
-                total = 0
-                exceeded = False
-                async for chunk in response.aiter_bytes():
-                    total += len(chunk)
-                    if total > cap:
-                        exceeded = True
-                        break
-                    chunks.append(chunk)
-        if exceeded:
-            raise FetchError(f"page exceeds the maximum fetch size of {cap} bytes")
-        return b"".join(chunks).decode("utf-8", errors="replace")
+            for _ in range(self.MAX_REDIRECTS + 1):
+                async with client.stream("GET", current) as response:
+                    if response.is_redirect:
+                        location = response.headers.get("location")
+                        if not location:
+                            raise FetchError("redirect response had no Location header")
+                        current = str(response.url.join(location))
+                        _assert_fetchable(current)
+                        continue
+
+                    response.raise_for_status()
+                    chunks: list[bytes] = []
+                    total = 0
+                    exceeded = False
+                    async for chunk in response.aiter_bytes():
+                        total += len(chunk)
+                        if total > cap:
+                            exceeded = True
+                            break
+                        chunks.append(chunk)
+                    if exceeded:
+                        raise FetchError(
+                            f"page exceeds the maximum fetch size of {cap} bytes"
+                        )
+                    return b"".join(chunks).decode("utf-8", errors="replace")
+
+        raise FetchError("too many redirects")
 
 
 class TextAnalyzer:

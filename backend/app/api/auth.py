@@ -15,12 +15,21 @@ from app.schemas.user import Token, UserCreate, UserLogin, UserResponse
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+# bcrypt hashes at most the first 72 bytes of a password and raises on more,
+# so we truncate consistently for both hashing and verification.
+_BCRYPT_MAX_BYTES = 72
+
+
+def _encode_password(password: str) -> bytes:
+    return password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
+
+
 def _hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(_encode_password(password), bcrypt.gensalt()).decode()
 
 
 def _verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    return bcrypt.checkpw(_encode_password(password), hashed.encode())
 
 
 def create_access_token(user_id: str) -> str:

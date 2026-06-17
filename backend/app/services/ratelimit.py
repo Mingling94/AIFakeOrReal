@@ -53,9 +53,18 @@ class RateLimiter:
             return False, max(ttl, 1)
         return True, 0
 
+    # Prune expired in-memory entries once the table grows past this size.
+    _PRUNE_THRESHOLD = 10_000
+
     def _hit_local(self, key: str, limit: int, window: int) -> tuple[bool, int]:
         now = time.monotonic()
         with self._lock:
+            if len(self._local) > self._PRUNE_THRESHOLD:
+                self._local = {
+                    k: (c, ws)
+                    for k, (c, ws) in self._local.items()
+                    if now - ws < window
+                }
             count, window_start = self._local.get(key, (0, now))
             if now - window_start >= window:
                 count, window_start = 0, now

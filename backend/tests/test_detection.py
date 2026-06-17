@@ -281,3 +281,16 @@ class TestExtractorSsrf:
     async def test_should_reject_non_http_scheme(self) -> None:
         with pytest.raises(FetchError):
             await ContentExtractor().extract_from_url("file:///etc/passwd")
+
+    @pytest.mark.asyncio
+    async def test_should_block_redirect_to_private_address(self) -> None:
+        """A public URL must not be able to redirect into an internal address."""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.host == "8.8.8.8":
+                return httpx.Response(302, headers={"location": "http://127.0.0.1/"})
+            return httpx.Response(200, html="<html><body>ok</body></html>")
+
+        extractor = ContentExtractor(transport=httpx.MockTransport(handler))
+        with pytest.raises(FetchError):
+            await extractor.extract_from_url("http://8.8.8.8/start")

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, ForeignKey, String
+from sqlalchemy import DateTime, Float, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -11,6 +11,11 @@ from app.db.base import Base
 
 class Vote(Base):
     __tablename__ = "votes"
+
+    # Enforce one vote per signed-in user per URL at the DB level. Anonymous
+    # votes have user_id NULL, which most databases treat as distinct, so they
+    # are not constrained (matching the app-level upsert behavior).
+    __table_args__ = (UniqueConstraint("user_id", "url_hash", name="uq_user_url_vote"),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     url_hash: Mapped[str] = mapped_column(
