@@ -1,6 +1,6 @@
 import { ext } from "./browser";
 
-export const DEFAULT_API_URL = "http://localhost:8000/api/v1";
+export const DEFAULT_API_URL = "https://loving-reverence-production.up.railway.app/api/v1";
 const API_URL_KEY = "apiUrl";
 const AUTO_CHECK_KEY = "autoCheck";
 const TOKEN_KEY = "token";

@@ -1,5 +1,6 @@
 import cors from "@fastify/cors";
 import Fastify from "fastify";
+import { ensureSchema } from "./db/index.js";
 import { analysisRoutes } from "./routes/analysis.js";
 import { authRoutes } from "./routes/auth.js";
 import { keyRoutes } from "./routes/keys.js";
@@ -44,6 +45,7 @@ const port = Number(process.env.PORT || 8000);
 const host = process.env.HOST || "0.0.0.0";
 
 try {
+  await ensureSchema();
   await app.listen({ port, host });
   console.log(`Server running on http://${host}:${port}`);
 } catch (err) {

@@ -6,7 +6,6 @@ COPY package.json package-lock.json* ./
 RUN npm install --production=false
 
 COPY . .
-COPY ../shared ../shared
 
 RUN npm run build
 
