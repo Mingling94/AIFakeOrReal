@@ -54,10 +54,11 @@ async def perform_analysis(
         content = await extract_content(url)
     analysis = text_analyzer.analyze_text(content.text)
 
-    # Comment accusations ("this is AI generated") are a strong human signal;
-    # scan the post's comments and visible page text for them.
-    scan_text = "\n".join(content.comments) + "\n" + content.text
-    accusation = detect_ai_accusations(scan_text)
+    # Comment accusations ("this is AI generated") are a strong signal. Only
+    # scan the *comments* — not the article body, because a news article
+    # *about* AI will legitimately contain phrases like "AI generated".
+    comment_text = "\n".join(content.comments)
+    accusation = detect_ai_accusations(comment_text)
     analysis["comment_signal"] = {
         "triggered": accusation.triggered,
         "strong_hits": accusation.strong_hits,
