@@ -71,7 +71,9 @@ async def safe_fetch(
         async with httpx.AsyncClient(
             timeout=15.0,
             follow_redirects=False,
-            headers={"User-Agent": "AIFakeOrReal/1.0"},
+            headers={
+                "User-Agent": "AIFakeOrReal/1.0 (+https://github.com/Mingling94/AIFakeOrReal)"
+            },
             transport=transport,
         ) as client:
             for _ in range(_MAX_REDIRECTS + 1):

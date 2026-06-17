@@ -5,6 +5,7 @@
   "description": "Crowdsourced AI content detection — know if what you're reading was made by AI.",
   "permissions": ["activeTab", "storage", "tabs"],
   "host_permissions": ["http://localhost:8000/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "scripts": ["background.js"]
   },

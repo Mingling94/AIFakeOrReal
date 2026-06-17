@@ -38,4 +38,5 @@ jobs:
           node-version: "20"
       - run: cd extension && npm install
       - run: cd extension && npm run typecheck
+      - run: cd extension && npm test
       - run: cd extension && npm run build:all

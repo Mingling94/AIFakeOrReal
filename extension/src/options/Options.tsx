@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "../common/api";
 import {
   DEFAULT_API_URL,
+  ensureApiPermission,
   getApiUrl,
   getAutoCheck,
   setApiUrl as saveApiUrl,
@@ -67,6 +68,11 @@ export function Options() {
   };
 
   const handleApiUrlSave = async () => {
+    const granted = await ensureApiPermission(apiUrl);
+    if (!granted) {
+      setMessage("Permission for that API host was denied — requests may fail.");
+      return;
+    }
     await saveApiUrl(apiUrl);
     setMessage("API URL saved.");
     setTimeout(() => setMessage(""), 2000);

@@ -14,6 +14,29 @@ export async function setApiUrl(url: string): Promise<void> {
   await ext.storage.local.set({ [API_URL_KEY]: url });
 }
 
+/**
+ * Ensure the extension may call the given API origin. Localhost is already in
+ * host_permissions; any other origin is requested at runtime from
+ * optional_host_permissions (must be triggered by a user gesture). Returns true
+ * if the origin is granted (or no permission API is available).
+ */
+export async function ensureApiPermission(url: string): Promise<boolean> {
+  const perms = ext.permissions;
+  if (!perms) return true;
+  let origin: string;
+  try {
+    origin = new URL(url).origin + "/*";
+  } catch {
+    return false;
+  }
+  try {
+    if (await perms.contains({ origins: [origin] })) return true;
+    return await perms.request({ origins: [origin] });
+  } catch {
+    return false;
+  }
+}
+
 export async function getAutoCheck(): Promise<boolean> {
   const result = await ext.storage.local.get(AUTO_CHECK_KEY);
   return result[AUTO_CHECK_KEY] !== false; // default on
