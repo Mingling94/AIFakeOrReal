@@ -33,9 +33,9 @@ function verdictClass(score: number | null): string {
 function verdictWord(score: number | null, isScanning: boolean): string {
   if (isScanning) return "Scanning…";
   if (score === null) return "Not checked";
-  if (score <= 0.3) return "Is Not AI";
+  if (score <= 0.3) return "Real";
   if (score <= 0.7) return "Unclear";
-  return "Is AI";
+  return "AI Fake";
 }
 
 type Chip = { label: string; type: "positive" | "negative" | "neutral" };
@@ -126,7 +126,7 @@ function getDisagreement(
 ): { show: boolean; scanLabel: string; crowdLabel: string } {
   if (!scan || crowd === null)
     return { show: false, scanLabel: "", crowdLabel: "" };
-  const label = (v: number) => (v > 0.7 ? "Is AI" : v <= 0.3 ? "Not AI" : "Unclear");
+  const label = (v: number) => (v > 0.7 ? "AI Fake" : v <= 0.3 ? "Real" : "Unclear");
   const sl = label(scan.score);
   const cl = label(crowd);
   return { show: sl !== cl && sl !== "Unclear" && cl !== "Unclear", scanLabel: sl, crowdLabel: cl };
@@ -403,13 +403,13 @@ export function Popup() {
                 className={`thumb-btn ${votedAs === "human" ? "voted" : ""}`}
                 onClick={() => handleVote("human")}
                 disabled={submitting || votedAs !== null}
-                title="Not AI"
+                title="Real"
               >👍</button>
               <button
                 className={`thumb-btn ${votedAs === "ai_generated" ? "voted" : ""}`}
                 onClick={() => handleVote("ai_generated")}
                 disabled={submitting || votedAs !== null}
-                title="Is AI"
+                title="AI Fake"
               >👎</button>
               {!reported ? (
                 <button className="wrong-btn" onClick={handleReport}>Wrong?</button>
@@ -432,7 +432,7 @@ export function Popup() {
                 )}
               </div>
               <div className="bar-label">
-                {votes.human} not AI · {votes.mixed} mixed · {votes.ai_generated} AI
+                {votes.human} real · {votes.mixed} mixed · {votes.ai_generated} fake
               </div>
             </>
           )}
@@ -451,13 +451,13 @@ export function Popup() {
               className={`thumb-btn ${votedAs === "human" ? "voted" : ""}`}
               onClick={() => handleVote("human")}
               disabled={submitting || votedAs !== null}
-              title="Looks human"
+              title="Real"
             >👍</button>
             <button
               className={`thumb-btn ${votedAs === "ai_generated" ? "voted" : ""}`}
               onClick={() => handleVote("ai_generated")}
               disabled={submitting || votedAs !== null}
-              title="Looks AI"
+              title="AI Fake"
             >👎</button>
           </div>
         </div>
