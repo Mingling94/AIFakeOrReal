@@ -3,32 +3,62 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AI Fake Or Real — Detect AI Content As You Browse</title>
-  <meta name="description" content="Browser extension that detects AI-generated text, images, and video. Powered by LLM analysis, heuristics, and community votes.">
+  <title>AI Fake Or Real — See What's Real In Your Feed</title>
+  <meta name="description" content="Free browser extension that flags AI-generated content on Reddit, Instagram, YouTube, Facebook, TikTok, and X. Like an ad blocker, but for AI slop.">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #334155; }
+
     .hero { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; padding: 80px 24px 60px; text-align: center; }
-    .hero h1 { font-size: 48px; margin-bottom: 12px; }
-    .hero h1 span.real { color: #4ade80; }
-    .hero h1 span.fake { color: #f87171; }
-    .hero .tagline { font-size: 20px; color: #94a3b8; max-width: 600px; margin: 0 auto 32px; }
-    .hero .emoji { font-size: 72px; margin-bottom: 16px; }
+    .hero .emoji { font-size: 80px; margin-bottom: 12px; }
+    .hero h1 { font-size: 44px; margin-bottom: 16px; line-height: 1.2; }
+    .hero h1 .fake { color: #f87171; }
+    .hero h1 .real { color: #4ade80; }
+    .hero .tagline { font-size: 20px; color: #94a3b8; max-width: 540px; margin: 0 auto 12px; line-height: 1.5; }
+    .hero .tagline2 { font-size: 15px; color: #64748b; max-width: 500px; margin: 0 auto 32px; }
     .cta { display: inline-flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
-    .cta a { display: inline-block; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; transition: transform 0.15s; }
+    .cta a { display: inline-block; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; transition: transform 0.15s; }
     .cta a:hover { transform: translateY(-2px); }
     .cta .primary { background: #22c55e; color: white; }
-    .cta .secondary { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
-    .features { max-width: 900px; margin: 0 auto; padding: 60px 24px; }
+    .cta .secondary { background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.15); }
+
+    .pitch { max-width: 720px; margin: 0 auto; padding: 60px 24px 40px; text-align: center; }
+    .pitch h2 { font-size: 28px; margin-bottom: 12px; color: #0f172a; }
+    .pitch p { font-size: 17px; color: #64748b; line-height: 1.6; }
+
+    .badges { display: flex; justify-content: center; gap: 20px; padding: 20px 24px 40px; flex-wrap: wrap; }
+    .badge-card { text-align: center; width: 140px; }
+    .badge-card .dot { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 22px; font-weight: 800; color: white; }
+    .badge-card .dot.green { background: #22c55e; }
+    .badge-card .dot.amber { background: #f59e0b; }
+    .badge-card .dot.red { background: #ef4444; }
+    .badge-card .label { font-weight: 700; font-size: 15px; color: #0f172a; }
+    .badge-card .desc { font-size: 13px; color: #94a3b8; margin-top: 2px; }
+
+    .features { max-width: 900px; margin: 0 auto; padding: 40px 24px 60px; }
     .features h2 { text-align: center; margin-bottom: 40px; font-size: 28px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; }
     .card { padding: 24px; border-radius: 12px; background: #f8fafc; }
     .card .icon { font-size: 32px; margin-bottom: 8px; }
     .card h3 { margin-bottom: 6px; }
     .card p { color: #64748b; font-size: 14px; line-height: 1.5; }
-    .banner { background: #fef3c7; padding: 40px 24px; text-align: center; }
-    .banner h2 { margin-bottom: 8px; }
-    .banner p { color: #92400e; max-width: 600px; margin: 0 auto; }
+
+    .platforms { background: #0f172a; color: white; padding: 48px 24px; text-align: center; }
+    .platforms h2 { margin-bottom: 8px; font-size: 24px; }
+    .platforms .list { font-size: 18px; color: #94a3b8; margin-top: 12px; }
+
+    .vs { max-width: 720px; margin: 0 auto; padding: 60px 24px; }
+    .vs h2 { text-align: center; margin-bottom: 12px; font-size: 24px; }
+    .vs .sub { text-align: center; color: #64748b; margin-bottom: 24px; }
+    .vs table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .vs th, .vs td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    .vs th { color: #64748b; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .vs td:first-child { font-weight: 600; }
+
+    .cta-bottom { background: #f0fdf4; padding: 60px 24px; text-align: center; }
+    .cta-bottom h2 { font-size: 28px; margin-bottom: 8px; }
+    .cta-bottom p { color: #64748b; margin-bottom: 24px; }
+
     .footer { padding: 24px; text-align: center; color: #94a3b8; font-size: 13px; }
     .footer a { color: #64748b; }
   </style>
@@ -36,12 +66,36 @@
 <body>
   <div class="hero">
     <div class="emoji">🥸</div>
-    <h1>AI <span class="fake">Fake</span> Or <span class="real">Real</span></h1>
-    <p class="tagline">The internet's lie detector for AI content. Catch the fakes before they catch you.</p>
+    <h1>AI <span class="fake">Fake</span> Or <span class="real">Real</span>?</h1>
+    <p class="tagline">See what's real in your social media feed.</p>
+    <p class="tagline2">Like an ad blocker, but for AI-generated content. Free forever.</p>
     <div class="cta">
       <a class="primary" href="https://chrome.google.com/webstore/detail/ai-fake-or-real">Install for Chrome</a>
-      <a class="secondary" href="https://addons.mozilla.org/addon/ai-fake-or-real/">Install for Firefox</a>
+      <a class="secondary" href="https://addons.mozilla.org/addon/ai-fake-or-real/">Firefox</a>
       <a class="secondary" href="https://github.com/Mingling94/AIFakeOrReal">GitHub</a>
+    </div>
+  </div>
+
+  <div class="pitch">
+    <h2>Your feed is full of AI. You just can't tell yet.</h2>
+    <p>AI-generated posts, fake images, bot-written comments — they're everywhere and getting better. AI Fake Or Real runs quietly in the background and marks the fakes so you don't have to guess.</p>
+  </div>
+
+  <div class="badges">
+    <div class="badge-card">
+      <div class="dot green">✓</div>
+      <div class="label">Real</div>
+      <div class="desc">Made by a human</div>
+    </div>
+    <div class="badge-card">
+      <div class="dot amber">?</div>
+      <div class="label">Unclear</div>
+      <div class="desc">Could go either way</div>
+    </div>
+    <div class="badge-card">
+      <div class="dot red">AI</div>
+      <div class="label">AI Fake</div>
+      <div class="desc">Probably AI-generated</div>
     </div>
   </div>
 
@@ -49,47 +103,70 @@
     <h2>How it works</h2>
     <div class="grid">
       <div class="card">
-        <div class="icon">⚡</div>
-        <h3>Instant Detection</h3>
-        <p>Every page gets a badge — green ✓ (Real), amber ? (Unclear), or red (AI Fake). No clicking needed.</p>
-      </div>
-      <div class="card">
-        <div class="icon">🤖</div>
-        <h3>LLM-Powered</h3>
-        <p>Uses GPT-4o, Claude, Gemini, and 5 more AI models to analyze text, images, and video. Falls back automatically.</p>
+        <div class="icon">📱</div>
+        <h3>Badges In Your Feed</h3>
+        <p>On Reddit, Instagram, Facebook, YouTube, TikTok, and X — AI posts get flagged right in your feed as you scroll. No clicking needed.</p>
       </div>
       <div class="card">
         <div class="icon">👥</div>
-        <h3>Community Votes</h3>
-        <p>See what other users think. Vote 👍 Real or 👎 AI Fake. Disagreements between scanner and crowd are flagged.</p>
+        <h3>The Community Decides</h3>
+        <p>Not sure about a post? See what other users voted. Your vote counts too — together we're smarter than any algorithm alone.</p>
       </div>
       <div class="card">
         <div class="icon">📊</div>
-        <h3>AI Exposure Stats</h3>
-        <p>Track what % of your browsing is AI content — over 1 day, 7 days, 30 days, or 1 year. All local, never sent anywhere.</p>
+        <h3>Your AI Exposure</h3>
+        <p>See how much AI content you're consuming — today, this week, this month. Like screen time, but for AI. Stored locally, never shared.</p>
       </div>
       <div class="card">
-        <div class="icon">🌐</div>
-        <h3>Every Platform</h3>
-        <p>Reddit, Instagram, YouTube, Facebook, TikTok, X, and any website. In-page badges on social media posts.</p>
+        <div class="icon">⚡</div>
+        <h3>Instant & Private</h3>
+        <p>The scanner runs locally in your browser. No data sent anywhere. No accounts, no tracking, no ads.</p>
       </div>
       <div class="card">
-        <div class="icon">🔒</div>
-        <h3>Privacy First</h3>
-        <p>No tracking, no cookies, no ads. Local scanning stays local. URL hashes, not full URLs, for lookups.</p>
+        <div class="icon">🤖</div>
+        <h3>AI-Powered Detection</h3>
+        <p>When deeper analysis is needed, 8 different AI models check the content — text, images, and video. Results are cached so it's fast.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💰</div>
+        <h3>Free Forever</h3>
+        <p>No subscription. No word limits. No premium tier. Open source. Because everyone deserves to know what's real.</p>
       </div>
     </div>
   </div>
 
-  <div class="banner">
-    <h2>🥸 Is that article real? Is that image AI? You'll know in a glance.</h2>
-    <p>Stop falling for AI slop. Start browsing with confidence.</p>
+  <div class="platforms">
+    <h2>Works where you browse</h2>
+    <div class="list">Reddit · Instagram · YouTube · Facebook · TikTok · X · News sites · Blogs · Anywhere</div>
+  </div>
+
+  <div class="vs">
+    <h2>Not another plagiarism checker</h2>
+    <p class="sub">GPTZero and Originality.ai are for teachers and editors. This is for your feed.</p>
+    <table>
+      <tr><th></th><th>AI Fake Or Real</th><th>GPTZero / Originality</th></tr>
+      <tr><td>Purpose</td><td>See what's real in your feed</td><td>Check student essays</td></tr>
+      <tr><td>How</td><td>Passive — works while you scroll</td><td>Active — paste text to scan</td></tr>
+      <tr><td>Price</td><td>Free forever</td><td>$10–15/month</td></tr>
+      <tr><td>Community</td><td>Crowd voting & disagreement alerts</td><td>None</td></tr>
+      <tr><td>AI exposure tracking</td><td>1D / 7D / 30D / 1Y</td><td>None</td></tr>
+      <tr><td>In-feed badges</td><td>Yes, on 6 platforms</td><td>No</td></tr>
+      <tr><td>Open source</td><td>Yes</td><td>No</td></tr>
+    </table>
+  </div>
+
+  <div class="cta-bottom">
+    <h2>🥸 Know what's real.</h2>
+    <p>Install in 10 seconds. No account needed.</p>
+    <div class="cta">
+      <a class="primary" href="https://chrome.google.com/webstore/detail/ai-fake-or-real" style="background:#0f172a">Install for Chrome — Free</a>
+    </div>
   </div>
 
   <div class="footer">
     <a href="privacy.html">Privacy Policy</a> ·
     <a href="https://github.com/Mingling94/AIFakeOrReal">Source Code</a> ·
-    <a href="https://loving-reverence-production.up.railway.app/api/v1/privacy">API</a>
+    <a href="https://github.com/Mingling94/AIFakeOrReal/blob/main/docs/API.md">API</a>
   </div>
 </body>
 </html>
