@@ -90,4 +90,6 @@ export interface ContentData {
   title: string;
   text: string;
   comments: string[];
+  image_urls?: string[];
+  video_url?: string | null;
 }

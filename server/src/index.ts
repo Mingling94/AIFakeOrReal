@@ -1,9 +1,11 @@
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import Fastify from "fastify";
 import { ensureSchema } from "./db/index.js";
 import { analysisRoutes } from "./routes/analysis.js";
 import { authRoutes } from "./routes/auth.js";
 import { keyRoutes } from "./routes/keys.js";
+import { privacyRoutes } from "./routes/privacy.js";
 import { publicRoutes } from "./routes/public.js";
 import { reportRoutes } from "./routes/reports.js";
 import { scoreRoutes } from "./routes/scores.js";
@@ -11,9 +13,19 @@ import { voteRoutes } from "./routes/votes.js";
 
 const app = Fastify({ logger: true });
 
+// CORS — allow chrome-extension, moz-extension, and configured origins.
 await app.register(cors, {
-  origin: [/chrome-extension:\/\/.*/, ...(process.env.CORS_ORIGINS?.split(",") || [])],
+  origin: [
+    /chrome-extension:\/\/.*/,
+    /moz-extension:\/\/.*/,
+    ...(process.env.CORS_ORIGINS?.split(",") || []),
+  ],
   credentials: true,
+});
+
+// Rate limiting — prevent abuse on write endpoints.
+await app.register(rateLimit, {
+  global: false, // only apply to routes that opt in
 });
 
 // Routes
@@ -26,6 +38,7 @@ await app.register(
     await api.register(scoreRoutes);
     await api.register(voteRoutes);
     await api.register(analysisRoutes);
+    await api.register(privacyRoutes);
   },
   { prefix: "/api/v1" }
 );

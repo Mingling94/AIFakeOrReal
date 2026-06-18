@@ -1,14 +1,22 @@
 import { ext } from "../common/browser";
 import { getApiUrl, getAutoCheck } from "../common/config";
+import { logPageVisit } from "../common/history";
+import type { ScanResult } from "../content/local-scanner";
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
-interface CachedScore {
-  score: number | null;
+interface CachedResult {
+  /** Combined score from API (crowd + analysis). null = no data. */
+  apiScore: number | null;
+  /** Local scanner result, if available. */
+  localScan: ScanResult | null;
   timestamp: number;
 }
 
-function setBadge(tabId: number, score: number | null): void {
+function setBadge(tabId: number, result: CachedResult | null): void {
+  // Prefer local scan if it ran; fall back to API score.
+  const score = result?.localScan?.score ?? result?.apiScore ?? null;
+
   if (score === null) {
     ext.action.setBadgeText({ tabId, text: "—" });
     ext.action.setBadgeBackgroundColor({ tabId, color: "#94a3b8" });
@@ -27,7 +35,7 @@ function setBadge(tabId: number, score: number | null): void {
   }
 }
 
-async function fetchScore(url: string): Promise<number | null> {
+async function fetchApiScore(url: string): Promise<number | null> {
   try {
     const base = await getApiUrl();
     const response = await fetch(`${base}/score?url=${encodeURIComponent(url)}`);
@@ -39,23 +47,65 @@ async function fetchScore(url: string): Promise<number | null> {
   }
 }
 
-async function getScoreWithCache(url: string): Promise<number | null> {
-  const cacheKey = `score_${url}`;
-  const result = await ext.storage.local.get(cacheKey);
-  const cached = result[cacheKey] as CachedScore | undefined;
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return cached.score;
+/** Ask the content script to run the local scanner on the page. */
+async function requestLocalScan(tabId: number): Promise<ScanResult | null> {
+  try {
+    const resp = await ext.tabs.sendMessage(tabId, { type: "LOCAL_SCAN" }) as
+      | { ok: true; scan: ScanResult }
+      | { ok: false }
+      | undefined;
+    return resp?.ok ? resp.scan : null;
+  } catch {
+    return null;
   }
-  const score = await fetchScore(url);
-  await ext.storage.local.set({
-    [cacheKey]: { score, timestamp: Date.now() } as CachedScore,
-  });
-  return score;
+}
+
+function cacheKey(url: string): string {
+  return `result_${url}`;
+}
+
+async function getCached(url: string): Promise<CachedResult | null> {
+  const key = cacheKey(url);
+  const stored = await ext.storage.local.get(key);
+  const cached = stored[key] as CachedResult | undefined;
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) return cached;
+  return null;
+}
+
+async function saveResult(url: string, result: CachedResult): Promise<void> {
+  await ext.storage.local.set({ [cacheKey(url)]: result });
 }
 
 function isCheckable(url: string | undefined): url is string {
   return !!url && /^https?:\/\//.test(url);
 }
+
+/**
+ * Full check: run local scan (instant) + fetch API score (network) in parallel.
+ * Updates badge as soon as local scan finishes, then refines when API responds.
+ */
+async function fullCheck(tabId: number, url: string): Promise<CachedResult> {
+  // Fire both in parallel
+  const [localScan, apiScore] = await Promise.all([
+    requestLocalScan(tabId),
+    fetchApiScore(url),
+  ]);
+  const result: CachedResult = { apiScore, localScan, timestamp: Date.now() };
+  await saveResult(url, result);
+
+  // Log to local history for AI exposure tracking.
+  const score = localScan?.score ?? apiScore;
+  if (score !== null) {
+    try {
+      const domain = new URL(url).hostname;
+      await logPageVisit(url, domain, score);
+    } catch { /* non-critical */ }
+  }
+
+  return result;
+}
+
+// --- Event listeners ---
 
 ext.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== "complete" || !isCheckable(tab.url)) return;
@@ -63,13 +113,26 @@ ext.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     setBadge(tabId, null);
     return;
   }
-  setBadge(tabId, await getScoreWithCache(tab.url));
+
+  // Show cached result immediately while re-checking in background
+  const cached = await getCached(tab.url);
+  if (cached) setBadge(tabId, cached);
+
+  // Run full check (local scan + API) in background
+  const result = await fullCheck(tabId, tab.url);
+  setBadge(tabId, result);
 });
 
 ext.tabs.onActivated.addListener(async (activeInfo) => {
   const tab = await ext.tabs.get(activeInfo.tabId);
   if (!isCheckable(tab.url)) return;
-  setBadge(activeInfo.tabId, await getScoreWithCache(tab.url));
+  const cached = await getCached(tab.url);
+  if (cached) {
+    setBadge(activeInfo.tabId, cached);
+  } else {
+    const result = await fullCheck(activeInfo.tabId, tab.url);
+    setBadge(activeInfo.tabId, result);
+  }
 });
 
 ext.runtime.onMessage.addListener(
@@ -79,20 +142,14 @@ ext.runtime.onMessage.addListener(
       message.url
     ) {
       const url = message.url;
-      ext.storage.local.remove(`score_${url}`);
+      ext.storage.local.remove(cacheKey(url));
       ext.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
         const tab = tabs[0];
         if (tab?.id && tab.url === url) {
-          const score = await fetchScore(url);
-          setBadge(tab.id, score);
-          await ext.storage.local.set({
-            [`score_${url}`]: { score, timestamp: Date.now() },
-          });
+          const result = await fullCheck(tab.id, url);
+          setBadge(tab.id, result);
         }
       });
-    }
-    if (message?.type === "BADGE_CLICKED" && message.url) {
-      ext.storage.local.set({ lastBadgeClickUrl: message.url });
     }
     return false;
   }

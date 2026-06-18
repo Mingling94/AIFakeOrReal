@@ -22,6 +22,8 @@ export interface PageContent {
   title: string;
   text: string;
   comments: string[];
+  imageUrls: string[];
+  videoUrl: string | null;
 }
 
 const sleep = (ms: number): Promise<void> =>
@@ -181,12 +183,53 @@ export function extractFromDocument(
     text = clean(doc.body?.textContent).slice(0, 50000);
   }
 
+  // Extract images (main content images, not icons/avatars).
+  const imageUrls: string[] = [];
+  try {
+    // OG image is the highest-signal image on the page.
+    const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute("content");
+    if (ogImage) imageUrls.push(ogImage);
+
+    // Collect large images from the page (likely content, not UI).
+    const imgs = doc.querySelectorAll("img[src]");
+    for (const img of imgs) {
+      if (imageUrls.length >= 5) break;
+      const src = img.getAttribute("src");
+      if (!src || !src.startsWith("http")) continue;
+      const w = (img as HTMLImageElement).naturalWidth || parseInt(img.getAttribute("width") || "0");
+      const h = (img as HTMLImageElement).naturalHeight || parseInt(img.getAttribute("height") || "0");
+      // Skip tiny images (icons, avatars, tracking pixels).
+      if (w > 0 && w < 100) continue;
+      if (h > 0 && h < 100) continue;
+      if (!imageUrls.includes(src)) imageUrls.push(src);
+    }
+  } catch { /* non-critical */ }
+
+  // Extract video URL.
+  let videoUrl: string | null = null;
+  try {
+    const ogVideo = doc.querySelector('meta[property="og:video"]')?.getAttribute("content")
+      || doc.querySelector('meta[property="og:video:url"]')?.getAttribute("content");
+    if (ogVideo) {
+      videoUrl = ogVideo;
+    } else {
+      const video = doc.querySelector("video[src]");
+      if (video) videoUrl = video.getAttribute("src");
+      if (!videoUrl) {
+        const source = doc.querySelector("video > source[src]");
+        if (source) videoUrl = source.getAttribute("src");
+      }
+    }
+  } catch { /* non-critical */ }
+
   return {
     platform,
     content_type: contentTypeFromPath(platform, path),
     title,
     text: text.slice(0, 50000),
     comments: comments.slice(0, 200),
+    imageUrls,
+    videoUrl,
   };
 }
 

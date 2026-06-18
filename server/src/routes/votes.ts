@@ -39,7 +39,14 @@ async function recalcScores(urlHash: string) {
 }
 
 export async function voteRoutes(app: FastifyInstance) {
-  app.post<{ Body: VoteRequest }>("/vote", async (req, reply) => {
+  app.post<{ Body: VoteRequest }>("/vote", {
+    config: {
+      rateLimit: {
+        max: 30,
+        timeWindow: "1 minute",
+      },
+    },
+  }, async (req, reply) => {
     const { url, vote, confidence } = req.body;
     try { validateUrl(url); } catch (e: any) {
       return reply.status(422).send({ detail: e.message });

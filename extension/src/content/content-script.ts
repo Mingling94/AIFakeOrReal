@@ -1,14 +1,12 @@
 import { ext } from "../common/browser";
 import { initOverlays } from "./overlays";
 import { extractPage } from "./readers";
+import { scanText } from "./local-scanner";
 
-// Respond to the popup's request to read the current page (expanding comments
-// where needed). Async work is supported by returning `true` to keep the
-// message channel open until sendResponse is called.
 // Initialize in-page overlays (scans posts on supported platforms).
 initOverlays().catch(() => {});
 
-// Respond to the popup's request to read the current page.
+// Handle messages from the popup and background service worker.
 ext.runtime.onMessage.addListener(
   (
     message: { type?: string },
@@ -23,6 +21,21 @@ ext.runtime.onMessage.addListener(
         );
       return true;
     }
+
+    // Background requests a quick local scan (no comment expansion, no network).
+    if (message?.type === "LOCAL_SCAN") {
+      (async () => {
+        try {
+          const content = await extractPage();
+          const scan = scanText(content.text, content.comments);
+          sendResponse({ ok: true, scan });
+        } catch {
+          sendResponse({ ok: false });
+        }
+      })();
+      return true;
+    }
+
     return false;
   }
 );

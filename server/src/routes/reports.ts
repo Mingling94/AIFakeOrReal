@@ -2,12 +2,14 @@ import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { ReportRequest } from "../shared/types.js";
 import { db } from "../db/index.js";
-import { reports } from "../db/schema.js";
+import { reports, urls } from "../db/schema.js";
 import { getUser } from "../middleware/auth.js";
 import { hashUrl, validateUrl } from "../services/scoring.js";
 
 export async function reportRoutes(app: FastifyInstance) {
-  app.post<{ Body: ReportRequest }>("/report", async (req, reply) => {
+  app.post<{ Body: ReportRequest }>("/report", {
+    config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+  }, async (req, reply) => {
     const { url, reported_verdict, reason } = req.body;
     try { validateUrl(url); } catch (e: any) {
       return reply.status(422).send({ detail: e.message });
@@ -15,16 +17,24 @@ export async function reportRoutes(app: FastifyInstance) {
     if (!["human", "mixed", "ai_generated"].includes(reported_verdict))
       return reply.status(422).send({ detail: "reported_verdict must be human, mixed, or ai_generated." });
 
+    const urlHash = hashUrl(url);
     const user = await getUser(req);
     const [report] = await db
       .insert(reports)
       .values({
-        urlHash: hashUrl(url),
+        urlHash,
         reporterId: user?.id ?? null,
         reportedVerdict: reported_verdict,
         reason: reason ?? null,
       })
       .returning();
+
+    // Invalidate the LLM cache so the next analysis re-runs.
+    // Setting lastAnalyzed to null forces a fresh LLM call.
+    await db
+      .update(urls)
+      .set({ lastAnalyzed: null, updatedAt: new Date() })
+      .where(eq(urls.urlHash, urlHash));
 
     return {
       id: report.id,
