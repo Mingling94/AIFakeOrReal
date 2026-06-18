@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Fake Or Real — We're sorry to see you go!</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 540px; margin: 0 auto; padding: 40px 24px; color: #334155; text-align: center; }
+    h1 { font-size: 48px; margin-bottom: 4px; }
+    h2 { color: #0f172a; margin-bottom: 8px; }
+    .subtitle { color: #64748b; margin-bottom: 32px; }
+    .reasons { text-align: left; margin: 0 auto; max-width: 400px; }
+    .reason { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin: 6px 0; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+    .reason:hover { border-color: #2563eb; background: #eff6ff; }
+    .reason input { accent-color: #2563eb; }
+    .reason label { cursor: pointer; flex: 1; }
+    textarea { width: 100%; margin-top: 16px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: inherit; font-size: 14px; resize: vertical; min-height: 80px; }
+    textarea:focus { outline: none; border-color: #2563eb; }
+    button { margin-top: 16px; background: #0f172a; color: white; border: none; padding: 10px 32px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    button:hover { background: #1e293b; }
+    .thanks { display: none; margin-top: 24px; padding: 16px; background: #f0fdf4; border-radius: 8px; color: #166534; }
+    .footer { margin-top: 40px; color: #94a3b8; font-size: 13px; }
+    a { color: #2563eb; }
+  </style>
+</head>
+<body>
+  <h1>🥸</h1>
+  <h2>We're sorry to see you go!</h2>
+  <p class="subtitle">Help us improve — why did you uninstall AI Fake Or Real?</p>
+
+  <form id="feedback" class="reasons">
+    <div class="reason"><input type="radio" name="reason" id="r1" value="not-useful"><label for="r1">Didn't find it useful</label></div>
+    <div class="reason"><input type="radio" name="reason" id="r2" value="inaccurate"><label for="r2">Detection was inaccurate</label></div>
+    <div class="reason"><input type="radio" name="reason" id="r3" value="slow"><label for="r3">Slowed down my browsing</label></div>
+    <div class="reason"><input type="radio" name="reason" id="r4" value="privacy"><label for="r4">Privacy concerns</label></div>
+    <div class="reason"><input type="radio" name="reason" id="r5" value="confusing"><label for="r5">Confusing to use</label></div>
+    <div class="reason"><input type="radio" name="reason" id="r6" value="other"><label for="r6">Other</label></div>
+
+    <textarea id="details" placeholder="Tell us more (optional)..."></textarea>
+    <button type="submit">Send Feedback</button>
+  </form>
+
+  <div class="thanks" id="thanks">
+    <strong>Thank you!</strong> Your feedback helps us make AI Fake Or Real better.<br>
+    You can always reinstall from the <a href="https://chrome.google.com/webstore/detail/ai-fake-or-real">Chrome Web Store</a>.
+  </div>
+
+  <div class="footer">
+    <a href="https://github.com/Mingling94/AIFakeOrReal">GitHub</a> ·
+    <a href="privacy.html">Privacy Policy</a>
+  </div>
+
+  <script>
+    document.getElementById('feedback').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const reason = document.querySelector('input[name="reason"]:checked')?.value || 'none';
+      const details = document.getElementById('details').value;
+      // Send to our backend (best-effort, user is leaving anyway)
+      fetch('https://loving-reverence-production.up.railway.app/api/v1/feedback', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({reason, details, type: 'uninstall'}),
+      }).catch(() => {});
+      // Show thanks
+      document.getElementById('feedback').style.display = 'none';
+      document.getElementById('thanks').style.display = 'block';
+    });
+  </script>
+</body>
+</html>

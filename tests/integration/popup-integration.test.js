@@ -39,7 +39,7 @@ const TESTS = [
     url: "https://www.bbc.com",
     expect: {
       verdictClass: "human",
-      verdictWordContains: "not ai",
+      verdictWordContains: "real",
       pctBelow: 40,
       chipsContainAny: ["Natural vocabulary", "Varied writing"],
       screenshotFile: "01-bbc-human.png",

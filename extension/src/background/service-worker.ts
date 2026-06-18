@@ -6,12 +6,12 @@ import type { ScanResult } from "../content/local-scanner";
 // Show welcome page on first install.
 ext.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
-    ext.tabs.create({ url: "https://github.com/Mingling94/AIFakeOrReal#readme" });
+    ext.tabs.create({ url: "https://mingling94.github.io/AIFakeOrReal/" });
   }
 });
 
 // Set uninstall feedback URL.
-ext.runtime.setUninstallURL("https://forms.gle/placeholder-feedback-form");
+ext.runtime.setUninstallURL("https://mingling94.github.io/AIFakeOrReal/uninstall.html");
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
