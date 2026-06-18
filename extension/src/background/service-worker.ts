@@ -3,6 +3,16 @@ import { getApiUrl, getAutoCheck } from "../common/config";
 import { logPageVisit } from "../common/history";
 import type { ScanResult } from "../content/local-scanner";
 
+// Show welcome page on first install.
+ext.runtime.onInstalled.addListener((details) => {
+  if (details.reason === "install") {
+    ext.tabs.create({ url: "https://github.com/Mingling94/AIFakeOrReal#readme" });
+  }
+});
+
+// Set uninstall feedback URL.
+ext.runtime.setUninstallURL("https://forms.gle/placeholder-feedback-form");
+
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
 interface CachedResult {
@@ -124,14 +134,18 @@ ext.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 });
 
 ext.tabs.onActivated.addListener(async (activeInfo) => {
-  const tab = await ext.tabs.get(activeInfo.tabId);
-  if (!isCheckable(tab.url)) return;
-  const cached = await getCached(tab.url);
-  if (cached) {
-    setBadge(activeInfo.tabId, cached);
-  } else {
-    const result = await fullCheck(activeInfo.tabId, tab.url);
-    setBadge(activeInfo.tabId, result);
+  try {
+    const tab = await ext.tabs.get(activeInfo.tabId);
+    if (!isCheckable(tab.url)) return;
+    const cached = await getCached(tab.url);
+    if (cached) {
+      setBadge(activeInfo.tabId, cached);
+    } else {
+      const result = await fullCheck(activeInfo.tabId, tab.url);
+      setBadge(activeInfo.tabId, result);
+    }
+  } catch {
+    // tabs.get may fail if tabs permission not granted — badge just won't update on tab switch
   }
 });
 

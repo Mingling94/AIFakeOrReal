@@ -39,6 +39,7 @@ module.exports = {
       patterns: [
         { from: `public/manifest.${TARGET}.json`, to: "manifest.json" },
         { from: "public/icons", to: "icons", noErrorOnMissing: true },
+        { from: "public/_locales", to: "_locales", noErrorOnMissing: true },
       ],
     }),
     new HtmlWebpackPlugin({

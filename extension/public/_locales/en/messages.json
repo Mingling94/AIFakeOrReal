@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "AI Fake Or Real",
+    "description": "Extension name shown in Chrome Web Store and toolbar"
+  },
+  "extDescription": {
+    "message": "Detect AI-generated content as you browse — powered by LLM analysis, heuristics, and community votes.",
+    "description": "Extension description shown in Chrome Web Store"
+  },
+  "commandToggle": {
+    "message": "Open AI Fake Or Real",
+    "description": "Keyboard shortcut description"
+  }
+}

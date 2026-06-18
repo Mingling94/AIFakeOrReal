@@ -1,18 +1,21 @@
 {
   "manifest_version": 3,
-  "name": "AI Fake Or Real",
-  "version": "0.1.0",
-  "description": "Crowdsourced AI content detection — know if what you're reading was made by AI.",
-  "permissions": ["activeTab", "storage", "tabs"],
+  "name": "__MSG_extName__",
+  "version": "1.0.0",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
+  "minimum_chrome_version": "109",
+  "permissions": ["activeTab", "storage"],
   "host_permissions": ["https://loving-reverence-production.up.railway.app/*"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "optional_permissions": ["tabs"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["http://*/*", "https://*/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
@@ -27,11 +30,23 @@
       "128": "icons/icon128.png"
     }
   },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+A",
+        "mac": "Command+Shift+A"
+      },
+      "description": "__MSG_commandToggle__"
+    }
+  },
   "options_page": "options.html",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
   }
 }

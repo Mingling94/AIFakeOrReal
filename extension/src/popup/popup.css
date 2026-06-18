@@ -403,3 +403,45 @@ body {
   border-radius: 4px;
   cursor: pointer;
 }
+
+/* ================================================================== */
+/*  Dark mode                                                          */
+/* ================================================================== */
+
+@media (prefers-color-scheme: dark) {
+  body { background: #0f172a; color: #e2e8f0; }
+
+  .signals-section, .community-section, .actions-section { border-color: #1e293b; }
+  .signals-label { color: #64748b; }
+  .signal-chip.positive { background: #052e16; color: #4ade80; }
+  .signal-chip.negative { background: #450a0a; color: #fca5a5; }
+  .signal-chip.neutral  { background: #1e293b; color: #94a3b8; }
+
+  .bar { background: #1e293b; }
+  .bar-label { color: #64748b; }
+
+  .thumb-btn { border-color: #334155; }
+  .thumb-btn:hover { border-color: #64748b; }
+  .thumb-btn.voted { border-color: #22c55e; background: #052e16; }
+
+  .wrong-btn { color: #64748b; }
+  .wrong-btn:hover { color: #94a3b8; }
+
+  .rescan-btn { color: #94a3b8; border-color: #334155; }
+  .rescan-btn:hover { color: #e2e8f0; border-color: #64748b; }
+
+  .details-toggle { color: #64748b; }
+  .details-toggle:hover { color: #94a3b8; }
+  .details-panel { color: #94a3b8; }
+  .details-panel .stat-row { border-color: #1e293b; }
+
+  .disagreement-notice { background: #422006; border-color: #854d0e; color: #fbbf24; }
+
+  .exposure-cell { background: #1e293b; }
+  .exposure-label { color: #64748b; }
+  .exposure-count { color: #475569; }
+
+  .error-box { background: #450a0a; border-color: #991b1b; }
+
+  .first-run { background: #1e293b; }
+}
