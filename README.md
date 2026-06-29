@@ -1,6 +1,20 @@
-# 🥸 AI Fake Or Real
+<div align="center">
 
-> **See what's real in your social media feed.** Like an ad blocker, but for AI-generated content.
+<img src="icons/icon-concept.png" alt="AI Fake Or Real" width="120" />
+
+<h1>🥸 AI Fake Or Real</h1>
+
+<p><strong>See what's real in your social media feed.</strong><br/>Like an ad blocker, but for AI-generated content.</p>
+
+<p>
+  <img src="docs/readme-hero/real.png" width="31%" alt="Real — made by a human" />
+  <img src="docs/readme-hero/unclear.png" width="31%" alt="Unclear — could be either" />
+  <img src="docs/readme-hero/fake.png" width="31%" alt="AI Fake — probably AI-generated" />
+</p>
+
+<sub>One tap on the toolbar gives the verdict for any page — 🟢 Real · 🟡 Unclear · 🔴 AI Fake</sub>
+
+</div>
 
 AI Fake Or Real is a free browser extension that runs in the background while you scroll Reddit, Instagram, YouTube, Facebook, TikTok, and X — flagging AI-generated posts, images, and text so you always know what's real.
 
