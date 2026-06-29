@@ -12,7 +12,7 @@ import {
   validateUrl,
 } from "../services/scoring.js";
 import { detectWithLLM, hasLLMProvider, listProviders } from "../services/llm-detection.js";
-import type { DetectionInput } from "../services/llm-detection.js";
+import type { DetectionInput, ProviderKeys } from "../services/llm-detection.js";
 import { getOrCreate, toResponse } from "./scores.js";
 
 // How long an LLM analysis result is considered fresh. Within this window,
@@ -30,6 +30,8 @@ export async function performAnalysis(
   imageUrls?: string[],
   videoUrl?: string,
   forceRescan = false,
+  userKeys?: Partial<ProviderKeys>,
+  preferred?: string[],
 ) {
   const row = await getOrCreate(url);
 
@@ -65,14 +67,14 @@ export async function performAnalysis(
     };
   }
 
-  if (hasLLMProvider()) {
+  if (hasLLMProvider(userKeys)) {
     const input: DetectionInput = {};
     if (text && text.length >= 50) input.text = text;
     if (imageUrls?.length) input.imageUrls = imageUrls;
     if (videoUrl) input.videoUrl = videoUrl;
 
     if (input.text || input.imageUrls || input.videoUrl) {
-      const llmResult = await detectWithLLM(input);
+      const llmResult = await detectWithLLM(input, { keys: userKeys, preferred });
       if (llmResult) {
         llmScore = llmResult.score;
         llmProvider = llmResult.provider;
@@ -130,14 +132,20 @@ export async function performAnalysis(
 }
 
 export async function analysisRoutes(app: FastifyInstance) {
-  app.post<{ Querystring: { url: string; force?: string } }>("/analyze", {
+  app.post<{
+    Querystring: { url: string; force?: string };
+    Body?: { llm_keys?: Partial<ProviderKeys>; llm_preferred?: string[] };
+  }>("/analyze", {
     config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
   }, async (req, reply) => {
     const { url, force } = req.query;
     try { validateUrl(url); } catch (e: any) {
       return reply.status(422).send({ detail: e.message });
     }
-    const { urlScore, analysis } = await performAnalysis(url, "", [], undefined, undefined, undefined, undefined, force === "1");
+    const { urlScore, analysis } = await performAnalysis(
+      url, "", [], undefined, undefined, undefined, undefined, force === "1",
+      req.body?.llm_keys, req.body?.llm_preferred,
+    );
     return {
       url_hash: urlScore.urlHash,
       url,
@@ -148,16 +156,25 @@ export async function analysisRoutes(app: FastifyInstance) {
     };
   });
 
-  app.post<{ Body: AnalyzeContentRequest & { image_urls?: string[]; video_url?: string; force?: boolean } }>(
+  app.post<{
+    Body: AnalyzeContentRequest & {
+      image_urls?: string[];
+      video_url?: string;
+      force?: boolean;
+      llm_keys?: Partial<ProviderKeys>;
+      llm_preferred?: string[];
+    };
+  }>(
     "/analyze/content",
     { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (req, reply) => {
-      const { url, text, comments, platform, content_type, image_urls, video_url, force } = req.body;
+      const { url, text, comments, platform, content_type, image_urls, video_url, force, llm_keys, llm_preferred } = req.body;
       try { validateUrl(url); } catch (e: any) {
         return reply.status(422).send({ detail: e.message });
       }
       const { urlScore, analysis } = await performAnalysis(
         url, text, comments || [], platform, content_type, image_urls, video_url, !!force,
+        llm_keys, llm_preferred,
       );
       return {
         url_hash: urlScore.urlHash,

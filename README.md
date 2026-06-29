@@ -35,6 +35,7 @@ On social media, badges appear directly on posts in your feed. No clicking, no i
 - **📊 AI exposure stats** — what % of your browsing is AI content (1D/7D/30D/1Y)
 - **⚡ Instant & private** — local scanner runs in your browser, no data sent anywhere
 - **🤖 LLM-powered** — 8 AI models for deep analysis (text, images, video), with automatic failover
+- **🔑 Bring your own keys** — optionally add your own API key for any of the 8 providers in Settings, and pick which to try first
 - **💰 Free forever** — no subscription, no word limits, open source
 
 ## Install

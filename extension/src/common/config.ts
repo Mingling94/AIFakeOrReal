@@ -57,6 +57,48 @@ export async function setOverlaysEnabled(enabled: boolean): Promise<void> {
   await ext.storage.local.set({ [OVERLAYS_KEY]: enabled });
 }
 
+// --- Bring-your-own LLM keys (BYOK) ---
+//
+// Optional: users can supply their own provider API keys so detection runs on
+// their own free-tier / paid quota instead of the shared server keys. Keys are
+// stored locally and sent to the configured API server only to make the call;
+// the server uses them transiently and never stores them.
+
+const LLM_KEYS_KEY = "llmKeys";
+const LLM_PREFERRED_KEY = "llmPreferred";
+
+/** Field names mirror the server's ProviderKeys. */
+export interface LlmKeys {
+  gemini?: string;
+  groq?: string;
+  openai?: string;
+  anthropic?: string;
+  mistral?: string;
+  cohere?: string;
+  together?: string;
+  cloudflareAccountId?: string;
+  cloudflareApiToken?: string;
+}
+
+export async function getLlmKeys(): Promise<LlmKeys> {
+  const result = await ext.storage.local.get(LLM_KEYS_KEY);
+  return (result[LLM_KEYS_KEY] as LlmKeys) || {};
+}
+
+export async function setLlmKeys(keys: LlmKeys): Promise<void> {
+  await ext.storage.local.set({ [LLM_KEYS_KEY]: keys });
+}
+
+/** Provider names to try first, in order. Empty means server default order. */
+export async function getLlmPreferred(): Promise<string[]> {
+  const result = await ext.storage.local.get(LLM_PREFERRED_KEY);
+  return (result[LLM_PREFERRED_KEY] as string[]) || [];
+}
+
+export async function setLlmPreferred(order: string[]): Promise<void> {
+  await ext.storage.local.set({ [LLM_PREFERRED_KEY]: order });
+}
+
 export async function getToken(): Promise<string | null> {
   const result = await ext.storage.local.get(TOKEN_KEY);
   return (result[TOKEN_KEY] as string) || null;

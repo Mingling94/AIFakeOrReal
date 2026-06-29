@@ -6,6 +6,11 @@
 //   Video: Gemini Flash (only provider with native video input)
 //
 // Each provider returns null on failure; the next in chain is tried automatically.
+//
+// Keys: the server's own keys (from env) are the default. Callers may pass
+// per-request keys (BYOK — "bring your own keys") which override the env keys,
+// plus a preferred provider order. BYOK keys are used transiently for that one
+// request and are never persisted or logged.
 
 // --- API keys (all optional — set whichever you have) ---
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
@@ -24,6 +29,53 @@ const REQUEST_TIMEOUT_MS = 15_000;
 // --- Types ---
 
 export type ContentType = "text" | "image" | "video" | "mixed";
+
+/** Per-provider credentials. All fields optional; empty means "not configured". */
+export interface ProviderKeys {
+  gemini: string;
+  groq: string;
+  openai: string;
+  anthropic: string;
+  mistral: string;
+  cohere: string;
+  together: string;
+  cloudflareAccountId: string;
+  cloudflareApiToken: string;
+}
+
+/** The server's own keys, read once from the environment. */
+const ENV_KEYS: ProviderKeys = {
+  gemini: GEMINI_API_KEY,
+  groq: GROQ_API_KEY,
+  openai: OPENAI_API_KEY,
+  anthropic: ANTHROPIC_API_KEY,
+  mistral: MISTRAL_API_KEY,
+  cohere: COHERE_API_KEY,
+  together: TOGETHER_API_KEY,
+  cloudflareAccountId: CLOUDFLARE_ACCOUNT_ID,
+  cloudflareApiToken: CLOUDFLARE_API_TOKEN,
+};
+
+/**
+ * Merge user-supplied keys over the server defaults. Empty/whitespace values
+ * are ignored so a partial BYOK config still falls back to the server's keys
+ * for the providers the user didn't supply.
+ */
+function mergeKeys(user?: Partial<ProviderKeys>): ProviderKeys {
+  if (!user) return ENV_KEYS;
+  const merged: ProviderKeys = { ...ENV_KEYS };
+  for (const field of Object.keys(merged) as (keyof ProviderKeys)[]) {
+    const value = user[field];
+    if (typeof value === "string" && value.trim()) merged[field] = value.trim();
+  }
+  return merged;
+}
+
+/** Options for a detection call. */
+export interface DetectionOptions {
+  keys?: Partial<ProviderKeys>; // BYOK — overrides server keys per request
+  preferred?: string[]; // provider names to try first, in order
+}
 
 export interface LLMDetectionResult {
   score: number;          // 0 (human) to 1 (AI)
@@ -154,8 +206,8 @@ async function openaiCompatible(
 // =====================================================================
 
 // --- 1. Google Gemini (best free tier, vision + video) ---
-async function gemini(input: DetectionInput, ct: ContentType): Promise<LLMDetectionResult | null> {
-  if (!GEMINI_API_KEY) return null;
+async function gemini(input: DetectionInput, ct: ContentType, keys: ProviderKeys): Promise<LLMDetectionResult | null> {
+  if (!keys.gemini) return null;
   const prompt = ct === "image" ? IMAGE_SYSTEM_PROMPT : ct === "video" ? VIDEO_SYSTEM_PROMPT : TEXT_SYSTEM_PROMPT;
 
   const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string }; fileData?: { mimeUri: string; mimeType: string } }> = [];
@@ -187,7 +239,7 @@ async function gemini(input: DetectionInput, ct: ContentType): Promise<LLMDetect
 
   try {
     const resp = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -210,18 +262,18 @@ async function gemini(input: DetectionInput, ct: ContentType): Promise<LLMDetect
 }
 
 // --- 2. Groq (fastest inference, text only, generous free tier) ---
-async function groq(input: DetectionInput): Promise<LLMDetectionResult | null> {
-  if (!GROQ_API_KEY || !input.text) return null;
+async function groq(input: DetectionInput, keys: ProviderKeys): Promise<LLMDetectionResult | null> {
+  if (!keys.groq || !input.text) return null;
   return openaiCompatible(
-    "https://api.groq.com/openai/v1", GROQ_API_KEY,
+    "https://api.groq.com/openai/v1", keys.groq,
     "llama-3.3-70b-versatile", TEXT_SYSTEM_PROMPT,
     [{ type: "text", text: truncate(input.text) }], "groq"
   );
 }
 
 // --- 3. OpenAI (vision capable) ---
-async function openai(input: DetectionInput, ct: ContentType): Promise<LLMDetectionResult | null> {
-  if (!OPENAI_API_KEY) return null;
+async function openai(input: DetectionInput, ct: ContentType, keys: ProviderKeys): Promise<LLMDetectionResult | null> {
+  if (!keys.openai) return null;
   const prompt = ct === "image" ? IMAGE_SYSTEM_PROMPT : TEXT_SYSTEM_PROMPT;
   const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
 
@@ -234,7 +286,7 @@ async function openai(input: DetectionInput, ct: ContentType): Promise<LLMDetect
   if (content.length === 0) return null;
 
   const result = await openaiCompatible(
-    "https://api.openai.com/v1", OPENAI_API_KEY,
+    "https://api.openai.com/v1", keys.openai,
     "gpt-4o-mini", prompt, content, "openai"
   );
   if (result) result.contentType = ct;
@@ -242,8 +294,8 @@ async function openai(input: DetectionInput, ct: ContentType): Promise<LLMDetect
 }
 
 // --- 4. Anthropic (vision capable) ---
-async function anthropic(input: DetectionInput, ct: ContentType): Promise<LLMDetectionResult | null> {
-  if (!ANTHROPIC_API_KEY) return null;
+async function anthropic(input: DetectionInput, ct: ContentType, keys: ProviderKeys): Promise<LLMDetectionResult | null> {
+  if (!keys.anthropic) return null;
   const prompt = ct === "image" ? IMAGE_SYSTEM_PROMPT : TEXT_SYSTEM_PROMPT;
 
   const content: Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }> = [];
@@ -275,7 +327,7 @@ async function anthropic(input: DetectionInput, ct: ContentType): Promise<LLMDet
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
+        "x-api-key": keys.anthropic,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
@@ -297,24 +349,24 @@ async function anthropic(input: DetectionInput, ct: ContentType): Promise<LLMDet
 }
 
 // --- 5. Mistral (text only, 1 RPM free) ---
-async function mistral(input: DetectionInput): Promise<LLMDetectionResult | null> {
-  if (!MISTRAL_API_KEY || !input.text) return null;
+async function mistral(input: DetectionInput, keys: ProviderKeys): Promise<LLMDetectionResult | null> {
+  if (!keys.mistral || !input.text) return null;
   return openaiCompatible(
-    "https://api.mistral.ai/v1", MISTRAL_API_KEY,
+    "https://api.mistral.ai/v1", keys.mistral,
     "mistral-small-latest", TEXT_SYSTEM_PROMPT,
     [{ type: "text", text: truncate(input.text) }], "mistral"
   );
 }
 
 // --- 6. Cohere (text only, 20 RPM free) ---
-async function cohere(input: DetectionInput): Promise<LLMDetectionResult | null> {
-  if (!COHERE_API_KEY || !input.text) return null;
+async function cohere(input: DetectionInput, keys: ProviderKeys): Promise<LLMDetectionResult | null> {
+  if (!keys.cohere || !input.text) return null;
   try {
     const resp = await fetchWithTimeout("https://api.cohere.com/v2/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${COHERE_API_KEY}`,
+        Authorization: `Bearer ${keys.cohere}`,
       },
       body: JSON.stringify({
         model: "command-r",
@@ -338,8 +390,8 @@ async function cohere(input: DetectionInput): Promise<LLMDetectionResult | null>
 }
 
 // --- 7. Together AI (vision via Llama, $5 free credit) ---
-async function together(input: DetectionInput, ct: ContentType): Promise<LLMDetectionResult | null> {
-  if (!TOGETHER_API_KEY) return null;
+async function together(input: DetectionInput, ct: ContentType, keys: ProviderKeys): Promise<LLMDetectionResult | null> {
+  if (!keys.together) return null;
   const isVision = ct === "image" && input.imageUrls?.length;
 
   const model = isVision
@@ -358,7 +410,7 @@ async function together(input: DetectionInput, ct: ContentType): Promise<LLMDete
   if (content.length === 0) return null;
 
   const result = await openaiCompatible(
-    "https://api.together.xyz/v1", TOGETHER_API_KEY,
+    "https://api.together.xyz/v1", keys.together,
     model, prompt, content, "together"
   );
   if (result) result.contentType = ct;
@@ -366,16 +418,16 @@ async function together(input: DetectionInput, ct: ContentType): Promise<LLMDete
 }
 
 // --- 8. Cloudflare Workers AI (text only, 10K req/day free) ---
-async function cloudflare(input: DetectionInput): Promise<LLMDetectionResult | null> {
-  if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN || !input.text) return null;
+async function cloudflare(input: DetectionInput, keys: ProviderKeys): Promise<LLMDetectionResult | null> {
+  if (!keys.cloudflareAccountId || !keys.cloudflareApiToken || !input.text) return null;
   try {
     const resp = await fetchWithTimeout(
-      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
+      `https://api.cloudflare.com/client/v4/accounts/${keys.cloudflareAccountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
+          Authorization: `Bearer ${keys.cloudflareApiToken}`,
         },
         body: JSON.stringify({
           messages: [
@@ -402,24 +454,24 @@ async function cloudflare(input: DetectionInput): Promise<LLMDetectionResult | n
 //  Failover chains
 // =====================================================================
 
-type ProviderFn = (input: DetectionInput, ct: ContentType) => Promise<LLMDetectionResult | null>;
+type ProviderFn = (input: DetectionInput, ct: ContentType, keys: ProviderKeys) => Promise<LLMDetectionResult | null>;
 
 interface ProviderEntry {
   name: string;
   fn: ProviderFn;
-  hasKey: () => boolean;
+  hasKey: (keys: ProviderKeys) => boolean;
   supports: ContentType[];
 }
 
 const ALL_PROVIDERS: ProviderEntry[] = [
-  { name: "gemini",     fn: (i, ct) => gemini(i, ct),       hasKey: () => !!GEMINI_API_KEY,    supports: ["text", "image", "video", "mixed"] },
-  { name: "groq",       fn: (i) => groq(i),                 hasKey: () => !!GROQ_API_KEY,      supports: ["text"] },
-  { name: "openai",     fn: (i, ct) => openai(i, ct),       hasKey: () => !!OPENAI_API_KEY,    supports: ["text", "image", "mixed"] },
-  { name: "anthropic",  fn: (i, ct) => anthropic(i, ct),    hasKey: () => !!ANTHROPIC_API_KEY,  supports: ["text", "image", "mixed"] },
-  { name: "mistral",    fn: (i) => mistral(i),              hasKey: () => !!MISTRAL_API_KEY,   supports: ["text"] },
-  { name: "cohere",     fn: (i) => cohere(i),               hasKey: () => !!COHERE_API_KEY,    supports: ["text"] },
-  { name: "together",   fn: (i, ct) => together(i, ct),     hasKey: () => !!TOGETHER_API_KEY,  supports: ["text", "image"] },
-  { name: "cloudflare", fn: (i) => cloudflare(i),           hasKey: () => !!(CLOUDFLARE_ACCOUNT_ID && CLOUDFLARE_API_TOKEN), supports: ["text"] },
+  { name: "gemini",     fn: (i, ct, k) => gemini(i, ct, k),    hasKey: (k) => !!k.gemini,    supports: ["text", "image", "video", "mixed"] },
+  { name: "groq",       fn: (i, _ct, k) => groq(i, k),         hasKey: (k) => !!k.groq,      supports: ["text"] },
+  { name: "openai",     fn: (i, ct, k) => openai(i, ct, k),    hasKey: (k) => !!k.openai,    supports: ["text", "image", "mixed"] },
+  { name: "anthropic",  fn: (i, ct, k) => anthropic(i, ct, k), hasKey: (k) => !!k.anthropic, supports: ["text", "image", "mixed"] },
+  { name: "mistral",    fn: (i, _ct, k) => mistral(i, k),      hasKey: (k) => !!k.mistral,   supports: ["text"] },
+  { name: "cohere",     fn: (i, _ct, k) => cohere(i, k),       hasKey: (k) => !!k.cohere,    supports: ["text"] },
+  { name: "together",   fn: (i, ct, k) => together(i, ct, k),  hasKey: (k) => !!k.together,  supports: ["text", "image"] },
+  { name: "cloudflare", fn: (i, _ct, k) => cloudflare(i, k),   hasKey: (k) => !!(k.cloudflareAccountId && k.cloudflareApiToken), supports: ["text"] },
 ];
 
 /** Determine what type of content we're analyzing. */
@@ -434,26 +486,47 @@ function classifyContent(input: DetectionInput): ContentType {
   return "text";
 }
 
+/** Order available providers by the caller's preference, stable for the rest. */
+function applyPreference(providers: ProviderEntry[], preferred?: string[]): ProviderEntry[] {
+  if (!preferred?.length) return providers;
+  const rank = (name: string): number => {
+    const i = preferred.indexOf(name);
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+  };
+  return providers
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => rank(a.p.name) - rank(b.p.name) || a.i - b.i)
+    .map(({ p }) => p);
+}
+
 /**
  * Detect AI content using the LLM waterfall chain.
  * Tries each provider in order until one succeeds.
  * For images/video, only providers with vision support are tried.
  * Returns null if all providers fail (caller falls back to heuristics).
+ *
+ * @param opts.keys     BYOK keys that override the server's env keys per request.
+ * @param opts.preferred Provider names to try first, in order.
  */
-export async function detectWithLLM(input: DetectionInput): Promise<LLMDetectionResult | null> {
+export async function detectWithLLM(
+  input: DetectionInput,
+  opts?: DetectionOptions,
+): Promise<LLMDetectionResult | null> {
+  const keys = mergeKeys(opts?.keys);
   const ct = classifyContent(input);
 
   // For text-only, require minimum length
   if (ct === "text" && (!input.text || input.text.trim().length < 50)) return null;
 
-  const available = ALL_PROVIDERS.filter(
-    (p) => p.hasKey() && p.supports.includes(ct)
+  const available = applyPreference(
+    ALL_PROVIDERS.filter((p) => p.hasKey(keys) && p.supports.includes(ct)),
+    opts?.preferred,
   );
 
   if (available.length === 0) return null;
 
   for (const provider of available) {
-    const result = await provider.fn(input, ct);
+    const result = await provider.fn(input, ct, keys);
     if (result) {
       console.log(`LLM detection by ${provider.name}: score=${result.score} (${ct})`);
       return result;
@@ -465,16 +538,18 @@ export async function detectWithLLM(input: DetectionInput): Promise<LLMDetection
   return null;
 }
 
-/** Check if any LLM provider is configured. */
-export function hasLLMProvider(): boolean {
-  return ALL_PROVIDERS.some((p) => p.hasKey());
+/** Check if any LLM provider is configured (optionally including BYOK keys). */
+export function hasLLMProvider(keys?: Partial<ProviderKeys>): boolean {
+  const merged = mergeKeys(keys);
+  return ALL_PROVIDERS.some((p) => p.hasKey(merged));
 }
 
 /** List configured providers (for diagnostics). */
-export function listProviders(): Array<{ name: string; configured: boolean; supports: ContentType[] }> {
+export function listProviders(keys?: Partial<ProviderKeys>): Array<{ name: string; configured: boolean; supports: ContentType[] }> {
+  const merged = mergeKeys(keys);
   return ALL_PROVIDERS.map((p) => ({
     name: p.name,
-    configured: p.hasKey(),
+    configured: p.hasKey(merged),
     supports: p.supports,
   }));
 }
