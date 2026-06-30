@@ -6,6 +6,7 @@ import {
   detectPlatform,
   extractDomain,
   hashUrl,
+  knownGeneratorScore,
   scoreToConfidence,
   validateUrl,
 } from "../services/scoring.js";
@@ -32,9 +33,21 @@ async function getOrCreate(url: string) {
   const urlHash = hashUrl(url);
   let [row] = await db.select().from(urls).where(eq(urls.urlHash, urlHash));
   if (!row) {
+    const domain = extractDomain(url);
+    // Cold-start seed: known AI-generator domains get a confident score on first
+    // sight so the very first visitor gets a real verdict (no empty state).
+    const seed = knownGeneratorScore(domain);
     [row] = await db
       .insert(urls)
-      .values({ urlHash, url, domain: extractDomain(url), platform: detectPlatform(url) })
+      .values({
+        urlHash,
+        url,
+        domain,
+        platform: detectPlatform(url),
+        ...(seed !== null
+          ? { aiScore: seed, combinedScore: seed, lastAnalyzed: new Date() }
+          : {}),
+      })
       .returning();
   }
   return row;

@@ -34,6 +34,9 @@ export const votes = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     urlHash: varchar("url_hash", { length: 64 }).notNull(),
     userId: uuid("user_id"),
+    // Hashed (IP + user-agent + salt) for anonymous voters — used to dedupe
+    // anonymous ballots per URL. Null for authenticated votes.
+    voterHash: varchar("voter_hash", { length: 64 }),
     vote: varchar("vote", { length: 20 }).notNull(),
     confidence: real("confidence"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

@@ -128,6 +128,34 @@ function truncate(text: string): string {
   return text.slice(0, MAX_TEXT_LENGTH) + "\n[...truncated]";
 }
 
+/**
+ * Guard against SSRF: we only fetch image bytes from public http(s) URLs.
+ * Blocks loopback, private/link-local ranges, cloud metadata endpoints, and
+ * non-http schemes so a page can't point the server at internal services.
+ * (Does not defend against DNS rebinding; acceptable for best-effort image pulls.)
+ */
+function isSafeRemoteUrl(raw: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host === "0.0.0.0" || host.endsWith(".local")) return false;
+  if (host === "metadata.google.internal") return false;
+  // IPv4 private / loopback / link-local
+  if (/^127\./.test(host)) return false;
+  if (/^10\./.test(host)) return false;
+  if (/^192\.168\./.test(host)) return false;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
+  if (/^169\.254\./.test(host)) return false; // includes 169.254.169.254 metadata
+  // IPv6 loopback / link-local / unique-local
+  if (host === "::1" || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) return false;
+  return true;
+}
+
 function parseResponse(raw: string): Omit<LLMDetectionResult, "provider" | "contentType"> | null {
   try {
     const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/i, "").trim();
@@ -218,6 +246,7 @@ async function gemini(input: DetectionInput, ct: ContentType, keys: ProviderKeys
   // Add images
   if (input.imageUrls?.length) {
     for (const url of input.imageUrls.slice(0, 3)) {
+      if (!isSafeRemoteUrl(url)) continue;
       try {
         const imgResp = await fetchWithTimeout(url, {}, 10_000);
         if (imgResp.ok) {
@@ -305,6 +334,7 @@ async function anthropic(input: DetectionInput, ct: ContentType, keys: ProviderK
   // Anthropic requires base64 for images
   if (ct === "image" && input.imageUrls?.length) {
     for (const url of input.imageUrls.slice(0, 3)) {
+      if (!isSafeRemoteUrl(url)) continue;
       try {
         const imgResp = await fetchWithTimeout(url, {}, 10_000);
         if (imgResp.ok) {

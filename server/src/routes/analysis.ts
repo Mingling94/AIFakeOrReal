@@ -9,6 +9,7 @@ import {
   detectPlatform,
   extractDomain,
   hashUrl,
+  knownGeneratorScore,
   validateUrl,
 } from "../services/scoring.js";
 import { detectWithLLM, hasLLMProvider, listProviders } from "../services/llm-detection.js";
@@ -17,9 +18,12 @@ import { getOrCreate, toResponse } from "./scores.js";
 
 // How long an LLM analysis result is considered fresh. Within this window,
 // subsequent requests for the same URL reuse the cached score from the DB
-// instead of burning another LLM call. Set to 1 week — content rarely changes
-// that fast, and users can force a re-scan if they disagree.
-const LLM_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
+// instead of burning another LLM call. Defaults to 1 week — content rarely
+// changes that fast, and users can force a re-scan if they disagree. Tunable via
+// LLM_CACHE_TTL_MS to trade freshness for provider quota as traffic grows.
+const LLM_CACHE_TTL_MS = Number(
+  process.env.LLM_CACHE_TTL_MS ?? 7 * 24 * 60 * 60 * 1000,
+); // 1 week
 
 export async function performAnalysis(
   url: string,
@@ -92,6 +96,10 @@ export async function performAnalysis(
   } else {
     aiScore = heuristic.score;
   }
+  // Known AI-generator domains floor the score — their content is AI by definition.
+  const known = knownGeneratorScore(extractDomain(url));
+  if (known !== null) aiScore = Math.max(aiScore, known);
+
   aiScore = Math.round(aiScore * 100) / 100;
 
   const signals: SignalSummary = {

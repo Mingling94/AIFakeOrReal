@@ -3,13 +3,17 @@
 // and only badges posts scoring above the threshold. Silence = it's fine.
 
 import { ext } from "../common/browser";
+import { getAvoidanceMode, type AvoidanceMode } from "../common/config";
 import { scanText, type ScanResult } from "./local-scanner";
 import { detectPlatform, type Platform } from "./readers";
+import { AI_LABEL_THRESHOLD, AVOIDANCE_THRESHOLD, BADGE_THRESHOLD } from "./thresholds";
 
 const BADGE_ATTR = "data-afor-scanned";
-const THRESHOLD = 0.5;
 const DEBOUNCE_MS = 200;
 const MAX_SCAN_BATCH = 20;
+
+// Set once per page from settings; controls hide/blur behavior.
+let avoidanceMode: AvoidanceMode = "off";
 
 // Per-platform config: how to find posts, extract text, and where to inject badges.
 interface PlatformConfig {
@@ -80,7 +84,7 @@ function createBadge(score: number, result: ScanResult): HTMLElement {
   badge.setAttribute("data-afor-badge", "true");
 
   const pct = Math.round(score * 100);
-  const isAI = score > 0.7;
+  const isAI = score >= AI_LABEL_THRESHOLD;
   const color = isAI ? "#ef4444" : "#f59e0b";
   const bgColor = isAI ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.12)";
   const dark = isDarkMode();
@@ -179,6 +183,100 @@ function injectBadge(post: HTMLElement, badge: HTMLElement, config: PlatformConf
   }
 }
 
+function styleRevealButton(btn: HTMLButtonElement): void {
+  Object.assign(btn.style, {
+    background: "rgba(255,255,255,0.18)",
+    color: "#fff",
+    border: "1px solid rgba(255,255,255,0.4)",
+    borderRadius: "6px",
+    padding: "5px 12px",
+    fontSize: "12px",
+    fontWeight: "600",
+    cursor: "pointer",
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  });
+}
+
+// Avoidance: blur or collapse a high-confidence AI post, with a reversible reveal.
+function applyAvoidance(post: HTMLElement, score: number, mode: AvoidanceMode): void {
+  const pct = Math.round(score * 100);
+
+  if (mode === "hide") {
+    const placeholder = document.createElement("div");
+    placeholder.setAttribute("data-afor-placeholder", "true");
+    Object.assign(placeholder.style, {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "8px 12px",
+      margin: "4px 0",
+      border: "1px dashed rgba(148,163,184,0.6)",
+      borderRadius: "8px",
+      fontSize: "12px",
+      color: "#64748b",
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    });
+    const text = document.createElement("span");
+    text.textContent = `🥸 AI-generated content hidden (${pct}%)`;
+    const show = document.createElement("button");
+    show.textContent = "Show";
+    Object.assign(show.style, {
+      background: "transparent",
+      border: "none",
+      color: "#3b82f6",
+      cursor: "pointer",
+      fontSize: "12px",
+      fontWeight: "600",
+      padding: "0",
+    });
+    const prevDisplay = post.style.display;
+    show.addEventListener("click", () => {
+      post.style.display = prevDisplay;
+      placeholder.remove();
+    });
+    placeholder.append(text, show);
+    post.style.display = "none";
+    post.parentElement?.insertBefore(placeholder, post);
+    return;
+  }
+
+  // blur
+  if (getComputedStyle(post).position === "static") post.style.position = "relative";
+  const cover = document.createElement("div");
+  cover.setAttribute("data-afor-cover", "true");
+  Object.assign(cover.style, {
+    position: "absolute",
+    inset: "0",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+    background: "rgba(15,23,42,0.35)",
+    color: "#fff",
+    zIndex: "9999",
+    borderRadius: "8px",
+    textAlign: "center",
+    padding: "12px",
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  });
+  const label = document.createElement("div");
+  label.textContent = `🥸 Likely AI-generated (${pct}%)`;
+  label.style.fontWeight = "600";
+  label.style.fontSize = "13px";
+  const show = document.createElement("button");
+  show.textContent = "Show anyway";
+  styleRevealButton(show);
+  show.addEventListener("click", (e) => {
+    e.stopPropagation();
+    cover.remove();
+  });
+  cover.append(label, show);
+  post.appendChild(cover);
+}
+
 function scanPost(post: HTMLElement, config: PlatformConfig): void {
   if (post.hasAttribute(BADGE_ATTR)) return;
   post.setAttribute(BADGE_ATTR, "true");
@@ -187,7 +285,15 @@ function scanPost(post: HTMLElement, config: PlatformConfig): void {
   if (!text && comments.length === 0) return;
 
   const result = scanText(text, comments);
-  if (result.score >= THRESHOLD) {
+
+  // Avoidance takes priority over the badge: if enabled and the post clears the
+  // (higher) avoidance bar, blur/hide it instead of just labeling it.
+  if (avoidanceMode !== "off" && result.score >= AVOIDANCE_THRESHOLD) {
+    applyAvoidance(post, result.score, avoidanceMode);
+    return;
+  }
+
+  if (result.score >= BADGE_THRESHOLD) {
     const badge = createBadge(result.score, result);
     injectBadge(post, badge, config);
   }
@@ -215,6 +321,8 @@ export async function initOverlays(): Promise<void> {
   // Check if overlays are enabled
   const result = await ext.storage.local.get("overlaysEnabled");
   if (result.overlaysEnabled === false) return;
+
+  avoidanceMode = await getAvoidanceMode();
 
   const platform = detectPlatform(location.host);
   const config = CONFIGS[platform];

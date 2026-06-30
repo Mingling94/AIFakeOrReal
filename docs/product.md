@@ -55,8 +55,8 @@ See how much of your browsing is AI-generated content — over the last day, wee
 ### 🌐 Works Everywhere
 Reddit, Instagram, YouTube, Facebook, TikTok, X (Twitter), news sites, blogs — any website.
 
-### 🔒 Private
-No browsing history collected. The local scanner runs entirely in your browser. No cookies, no tracking, no ads. Open source so you can verify.
+### 🔒 Local-first & private
+The in-feed scanner, hide/blur avoidance, and AI-exposure stats run entirely in your browser — no browsing history is collected and those never leave your device. Deeper analysis (when you open the popup or scan a page) sends only that page's content to the server and on to AI providers for classification. No cookies, no tracking, no ads. Open source so you can verify. See the [privacy policy](privacy-policy.md).
 
 ### 💰 Free Forever
 No subscription, no credit card, no word limits. Free and open source.

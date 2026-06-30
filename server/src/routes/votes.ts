@@ -1,5 +1,6 @@
+import { createHash } from "crypto";
 import { and, eq } from "drizzle-orm";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { db } from "../db/index.js";
 import { urls, users, votes } from "../db/schema.js";
 import { getUser } from "../middleware/auth.js";
@@ -13,7 +14,20 @@ import {
 } from "../services/scoring.js";
 import type { VoteBreakdown, VoteRequest } from "../shared/types.js";
 
-const ANON_REP = 0.3;
+// Anonymous votes count for little — they can't be tied to a reputation and are
+// trivially Sybil-able. They still register so the crowd bar isn't empty, but
+// authenticated voters dominate the weighted crowd score.
+const ANON_REP = 0.1;
+
+// Salt for hashing anonymous voter fingerprints so stored hashes aren't reversible.
+const VOTER_SALT = process.env.VOTER_SALT || process.env.SECRET_KEY || "afor-voter-salt";
+
+/** Stable per-(IP + user-agent) fingerprint used to dedupe anonymous ballots. */
+function voterFingerprint(req: FastifyRequest): string {
+  const ip = req.ip || "";
+  const ua = (req.headers["user-agent"] as string) || "";
+  return createHash("sha256").update(`${ip}|${ua}|${VOTER_SALT}`).digest("hex");
+}
 
 async function recalcScores(urlHash: string) {
   const allVotes = await db.select().from(votes).where(eq(votes.urlHash, urlHash));
@@ -86,7 +100,24 @@ export async function voteRoutes(app: FastifyInstance) {
         await db.update(users).set({ totalVotes: user.totalVotes + 1 }).where(eq(users.id, user.id));
       }
     } else {
-      [voteRow] = await db.insert(votes).values({ urlHash, vote, confidence }).returning();
+      // Anonymous: dedupe by (urlHash, voterHash) so one fingerprint = one ballot.
+      const voterHash = voterFingerprint(req);
+      const [prev] = await db
+        .select()
+        .from(votes)
+        .where(and(eq(votes.urlHash, urlHash), eq(votes.voterHash, voterHash)));
+      if (prev) {
+        [voteRow] = await db
+          .update(votes)
+          .set({ vote, confidence })
+          .where(eq(votes.id, prev.id))
+          .returning();
+      } else {
+        [voteRow] = await db
+          .insert(votes)
+          .values({ urlHash, voterHash, vote, confidence })
+          .returning();
+      }
     }
 
     await recalcScores(urlHash);

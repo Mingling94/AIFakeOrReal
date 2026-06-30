@@ -31,9 +31,10 @@ On social media, badges appear directly on posts in your feed. No clicking, no i
 ## Features
 
 - **📱 In-feed badges** — AI posts flagged right in your Reddit/Instagram/Facebook/YouTube/TikTok/X feed
+- **🙈 Avoid AI** — optionally blur or hide high-confidence AI posts (not just badge them), with one-click reveal
 - **👥 Community votes** — see what other users think, vote 👍 Real or 👎 AI Fake
 - **📊 AI exposure stats** — what % of your browsing is AI content (1D/7D/30D/1Y)
-- **⚡ Instant & private** — local scanner runs in your browser, no data sent anywhere
+- **⚡ Instant & local-first** — in-feed badges, hide/blur, and AI-exposure stats run locally in your browser; only deep analysis of a page you check is sent to the server
 - **🤖 LLM-powered** — 8 AI models for deep analysis (text, images, video), with automatic failover
 - **🔑 Bring your own keys** — optionally add your own API key for any of the 8 providers in Settings, and pick which to try first
 - **💰 Free forever** — no subscription, no word limits, open source
@@ -71,6 +72,7 @@ export OPENAI_API_KEY=...    # Vision support
 - **[Product overview](docs/product.md)** — what it does and who it's for
 - **[Deployment guide](docs/deployment.md)** — server, extension, multi-browser
 - **[API reference](docs/API.md)** — for developers building on top
+- **[Cost & scaling](docs/scaling.md)** — how it stays cheap and pays for itself
 - **[Privacy policy](docs/privacy-policy.md)**
 
 ## Project structure

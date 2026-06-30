@@ -99,6 +99,25 @@ export async function setLlmPreferred(order: string[]): Promise<void> {
   await ext.storage.local.set({ [LLM_PREFERRED_KEY]: order });
 }
 
+// --- Avoidance mode (hide/blur AI content, the "ad blocker" behavior) ---
+//
+// off  — just badge AI posts (default)
+// blur — blur high-confidence AI posts with a "Show anyway" reveal
+// hide — collapse high-confidence AI posts to a small placeholder with a reveal
+
+export type AvoidanceMode = "off" | "blur" | "hide";
+const AVOIDANCE_MODE_KEY = "avoidanceMode";
+
+export async function getAvoidanceMode(): Promise<AvoidanceMode> {
+  const result = await ext.storage.local.get(AVOIDANCE_MODE_KEY);
+  const mode = result[AVOIDANCE_MODE_KEY] as AvoidanceMode | undefined;
+  return mode === "blur" || mode === "hide" ? mode : "off";
+}
+
+export async function setAvoidanceMode(mode: AvoidanceMode): Promise<void> {
+  await ext.storage.local.set({ [AVOIDANCE_MODE_KEY]: mode });
+}
+
 export async function getToken(): Promise<string | null> {
   const result = await ext.storage.local.get(TOKEN_KEY);
   return (result[TOKEN_KEY] as string) || null;

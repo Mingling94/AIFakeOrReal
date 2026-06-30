@@ -5,7 +5,36 @@ import { SignJWT, jwtVerify } from "jose";
 import { db } from "../db/index.js";
 import { apiKeys, users } from "../db/schema.js";
 
-const SECRET = new TextEncoder().encode(process.env.SECRET_KEY || "change-me");
+// Load the JWT signing secret. In production we refuse to start with a missing,
+// default, or weak secret — otherwise tokens would be forgeable and any account
+// (and its vote reputation) could be impersonated.
+function loadSecret(): Uint8Array {
+  const raw = process.env.SECRET_KEY;
+  const isProd = process.env.NODE_ENV === "production";
+  if (!raw || raw === "change-me") {
+    if (isProd) {
+      throw new Error(
+        "SECRET_KEY must be set to a strong, unique value in production. " +
+          "Refusing to start with a missing or default secret. " +
+          "Generate one with `openssl rand -hex 32` and set it in the environment.",
+      );
+    }
+    console.warn(
+      "[auth] SECRET_KEY is unset or the default placeholder — using an insecure " +
+        "dev secret. Set SECRET_KEY before deploying.",
+    );
+    return new TextEncoder().encode("dev-insecure-secret-do-not-use-in-prod");
+  }
+  if (raw.length < 32) {
+    if (isProd) {
+      throw new Error("SECRET_KEY must be at least 32 characters in production.");
+    }
+    console.warn("[auth] SECRET_KEY is shorter than 32 characters — use a longer secret in production.");
+  }
+  return new TextEncoder().encode(raw);
+}
+
+const SECRET = loadSecret();
 const ALG = "HS256";
 const EXPIRE_MIN = Number(process.env.ACCESS_TOKEN_EXPIRE_MINUTES ?? 1440);
 

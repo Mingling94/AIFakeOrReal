@@ -78,6 +78,45 @@ export function scoreToConfidence(voteCount: number, aiScore: number | null): st
   return "high";
 }
 
+// Domains whose output is inherently AI-generated. Visiting them returns a
+// confident verdict immediately — no LLM call needed. This warms the cold-start
+// experience (the first user to see a URL still gets a real answer) and saves
+// quota on the obvious cases. Matched by exact host or subdomain suffix.
+const KNOWN_AI_DOMAINS: Record<string, number> = {
+  "chatgpt.com": 0.95,
+  "chat.openai.com": 0.95,
+  "openai.com": 0.9,
+  "gemini.google.com": 0.95,
+  "claude.ai": 0.95,
+  "copilot.microsoft.com": 0.95,
+  "perplexity.ai": 0.9,
+  "poe.com": 0.9,
+  "character.ai": 0.95,
+  "midjourney.com": 0.95,
+  "leonardo.ai": 0.95,
+  "ideogram.ai": 0.95,
+  "civitai.com": 0.9,
+  "lexica.art": 0.95,
+  "openart.ai": 0.9,
+  "playground.com": 0.85,
+  "krea.ai": 0.9,
+  "suno.com": 0.95,
+  "runwayml.com": 0.9,
+};
+
+/**
+ * Confident AI score for a known generator domain, or null if unknown.
+ * @param domain hostname (with or without leading www.)
+ */
+export function knownGeneratorScore(domain: string): number | null {
+  const host = domain.toLowerCase().replace(/^www\./, "");
+  if (host in KNOWN_AI_DOMAINS) return KNOWN_AI_DOMAINS[host];
+  for (const known of Object.keys(KNOWN_AI_DOMAINS)) {
+    if (host === known || host.endsWith(`.${known}`)) return KNOWN_AI_DOMAINS[known];
+  }
+  return null;
+}
+
 export function scoreToVerdict(score: number | null): string {
   if (score === null) return "unknown";
   if (score <= 0.3) return "human";

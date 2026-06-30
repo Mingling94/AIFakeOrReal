@@ -19,6 +19,9 @@ A small badge on the extension icon tells you at a glance:
 
 On social media, badges appear directly on posts in your feed. No clicking, no interruption.
 
+🙈 AVOID IT, DON'T JUST SPOT IT
+Don't want to see AI slop at all? Turn on Avoid mode to automatically blur or hide high-confidence AI posts as you scroll — with a one-click reveal whenever you want to look. Like an ad blocker, but for AI.
+
 👥 THE COMMUNITY DECIDES
 Not sure about a post? See how others voted. Tap 👍 for Real or 👎 for AI Fake. When the scanner and the crowd disagree, you'll see an ⚡ alert — your vote helps settle it.
 
@@ -36,10 +39,11 @@ Ever wonder how much AI content you're actually seeing? AI Fake Or Real tracks i
 • X (Twitter) — detects bot-written tweets
 • News sites, blogs, and any website
 
-⚡ FAST & PRIVATE
-• Runs instantly — the local scanner works offline, no waiting
-• No data collected — AI exposure stats never leave your device
+⚡ FAST & LOCAL-FIRST
+• Runs instantly — the in-feed scanner works in your browser, no waiting
+• Local-first privacy — in-feed badges and your AI-exposure stats stay on your device; only deep analysis of a page you check is sent to the server (and on to AI providers for classification)
 • No cookies, no tracking, no ads — ever
+• Bring your own AI keys — optionally use your own provider quota (Settings)
 • Open source — see exactly what the code does: github.com/Mingling94/AIFakeOrReal
 
 💰 100% FREE

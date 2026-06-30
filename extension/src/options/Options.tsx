@@ -5,17 +5,19 @@ import {
   ensureApiPermission,
   getApiUrl,
   getAutoCheck,
+  getAvoidanceMode,
   getLlmKeys,
   getLlmPreferred,
   getOverlaysEnabled,
   setApiUrl as saveApiUrl,
   setAutoCheck as saveAutoCheck,
+  setAvoidanceMode as saveAvoidanceMode,
   setLlmKeys as saveLlmKeys,
   setLlmPreferred as saveLlmPreferred,
   setOverlaysEnabled as saveOverlays,
   setToken,
 } from "../common/config";
-import type { LlmKeys } from "../common/config";
+import type { AvoidanceMode, LlmKeys } from "../common/config";
 import type { UserStats } from "../common/types";
 
 // Single-key providers (Cloudflare needs two fields, handled separately).
@@ -81,15 +83,22 @@ export function Options() {
   const [message, setMessage] = useState("");
   const [llmKeys, setLlmKeysState] = useState<LlmKeys>({});
   const [preferred, setPreferred] = useState("");
+  const [avoidance, setAvoidance] = useState<AvoidanceMode>("off");
 
   useEffect(() => {
     getAutoCheck().then(setAutoCheck);
     getOverlaysEnabled().then(setOverlays);
+    getAvoidanceMode().then(setAvoidance);
     getApiUrl().then(setApiUrl);
     getLlmKeys().then(setLlmKeysState);
     getLlmPreferred().then((order) => setPreferred(order[0] || ""));
     api.getUserStats().then(setUser).catch(() => {});
   }, []);
+
+  const handleAvoidanceChange = (mode: AvoidanceMode) => {
+    setAvoidance(mode);
+    void saveAvoidanceMode(mode);
+  };
 
   const updateKey = (field: keyof LlmKeys, value: string) =>
     setLlmKeysState((prev) => ({ ...prev, [field]: value }));
@@ -170,6 +179,21 @@ export function Options() {
             }}
           />
           Show in-page AI indicators on social media
+        </label>
+        <label style={{ ...styles.label, display: "block", marginTop: 12 }}>
+          <span style={{ fontSize: 14 }}>Avoid AI content in your feed</span>
+          <select
+            style={styles.input}
+            value={avoidance}
+            onChange={(e) => handleAvoidanceChange(e.target.value as AvoidanceMode)}
+          >
+            <option value="off">Off — just badge AI posts</option>
+            <option value="blur">Blur high-confidence AI posts (Show anyway)</option>
+            <option value="hide">Hide high-confidence AI posts (collapse)</option>
+          </select>
+          <span style={{ fontSize: 12, color: "#999", display: "block", marginTop: 4 }}>
+            Only applies to posts we're confident are AI — each can be revealed with one click.
+          </span>
         </label>
       </div>
 

@@ -46,6 +46,7 @@ export async function ensureSchema() {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         url_hash VARCHAR(64) NOT NULL,
         user_id UUID,
+        voter_hash VARCHAR(64),
         vote VARCHAR(20) NOT NULL,
         confidence REAL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -73,4 +74,13 @@ export async function ensureSchema() {
       )`;
     console.log("Schema created successfully");
   }
+
+  // Idempotent migrations — applied on every startup so existing databases
+  // (which skip the create-table block above) pick up new columns/indexes.
+  await client`ALTER TABLE votes ADD COLUMN IF NOT EXISTS voter_hash VARCHAR(64)`;
+  // One anonymous ballot per (url, voter) — partial index so authenticated
+  // votes (voter_hash IS NULL) are unaffected and deduped by (user_id, url_hash).
+  await client`
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_voter_url
+    ON votes (url_hash, voter_hash) WHERE voter_hash IS NOT NULL`;
 }

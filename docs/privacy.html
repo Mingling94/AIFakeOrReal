@@ -23,7 +23,7 @@
   <ul>
     <li><strong>URL hashes:</strong> When you open the popup, we send a SHA-256 hash of the page URL to look up the AI detection score. We do NOT send the full URL unless you trigger a full analysis.</li>
     <li><strong>Page content for analysis:</strong> When analysis runs, the extension reads visible text, images, and comments on the page and sends them to our server for AI detection. This content is processed and not stored permanently.</li>
-    <li><strong>Votes and reports:</strong> If you vote (👍 Real / 👎 AI Fake) or report an incorrect verdict, the vote is stored with the URL hash. Anonymous unless you create an account.</li>
+    <li><strong>Votes and reports:</strong> If you vote (👍 Real / 👎 AI Fake) or report an incorrect verdict, the vote is stored with the URL hash. If you're not logged in, we store a one-way hash of your IP + user-agent solely to prevent duplicate anonymous voting — never your raw IP.</li>
   </ul>
 
   <h2>What we do NOT collect</h2>
@@ -37,13 +37,13 @@
   <p>The extension scans visible post text on supported platforms (Reddit, Instagram, YouTube, Facebook, X, TikTok) using a <strong>local, client-side heuristic</strong> — this happens entirely in your browser with no data sent to any server. You can disable this in the extension's options.</p>
 
   <h2>LLM-powered detection</h2>
-  <p>When analysis is triggered, page text may be sent to third-party AI services (Google Gemini, OpenAI, Anthropic, etc.) for classification. This text is processed and not stored by our server. The AI providers' own privacy policies apply to their processing of the text.</p>
+  <p>When analysis is triggered, page text and/or image URLs may be sent to third-party AI services (Google Gemini, Groq, OpenAI, Anthropic, Mistral, Cohere, Together, Cloudflare) for classification. This content is processed and not stored by our server. The AI providers' own privacy policies apply. If you supply your own API keys in settings ("bring your own keys"), they are stored locally in your browser and sent to our server only to make the request on your behalf; we do not store them.</p>
 
   <h2>Data storage &amp; deletion</h2>
   <p>Detection scores and vote counts are stored on our server associated with URL hashes (not full URLs). You can delete your vote data at any time via the API: <code>DELETE /api/v1/my-data?url=&lt;url&gt;</code></p>
 
-  <h2>Third parties</h2>
-  <p>We do not sell, share, or provide your data to any third party. AI detection API providers process text solely for classification and do not retain it per their policies.</p>
+  <h2>Selling data</h2>
+  <p>We do not sell your data or use it for advertising. The only sharing is with the AI providers above, solely to perform the analysis you requested.</p>
 
   <h2>Contact</h2>
   <p>For questions: <a href="https://github.com/Mingling94/AIFakeOrReal/issues">Open an issue on GitHub</a></p>
