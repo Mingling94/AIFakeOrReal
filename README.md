@@ -71,6 +71,7 @@ export OPENAI_API_KEY=...    # Vision support
 
 - **[Product overview](docs/product.md)** — what it does and who it's for
 - **[Deployment guide](docs/deployment.md)** — server, extension, multi-browser
+- **[Deploy on Fly.io + Neon](docs/deploy-fly.md)** — near-free hosting runbook
 - **[API reference](docs/API.md)** — for developers building on top
 - **[Cost & scaling](docs/scaling.md)** — how it stays cheap and pays for itself
 - **[Privacy policy](docs/privacy-policy.md)**

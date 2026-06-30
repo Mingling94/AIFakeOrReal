@@ -6,7 +6,7 @@
   "default_locale": "en",
   "minimum_chrome_version": "109",
   "permissions": ["activeTab", "storage"],
-  "host_permissions": ["https://loving-reverence-production.up.railway.app/*"],
+  "host_permissions": ["https://aifakeorreal.fly.dev/*"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
   "optional_permissions": ["tabs"],
   "background": {

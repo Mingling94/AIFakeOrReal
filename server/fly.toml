@@ -1,0 +1,45 @@
+# Fly.io configuration for the AI Fake Or Real API server.
+#
+# Deploy from this directory:  fly deploy
+# Full runbook:                docs/deploy-fly.md
+#
+# Uses the existing Dockerfile. The app reads PORT and listens on 0.0.0.0, and
+# exposes /health for Fly's health checks. Postgres lives on Neon (free tier) —
+# set DATABASE_URL as a secret, not here.
+
+app = "aifakeorreal"
+primary_region = "sea"   # Seattle — closest to most early users; change as you like
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8000"
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # Scale to zero when idle to stay ~free. "suspend" keeps memory so wake is fast
+  # (~sub-second), unlike a cold "stop". Flip min_machines_running to 1 for
+  # always-on (no cold start) at a small cost.
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

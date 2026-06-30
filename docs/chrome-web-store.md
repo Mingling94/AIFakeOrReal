@@ -102,7 +102,7 @@ English
 - [x] Store icon (128×128)
 - [x] Screenshots sized to 1280×800 (`docs/store-screenshots/cws/`)
 - [x] Privacy policy at a public HTTPS URL — `https://mingling94.github.io/AIFakeOrReal/privacy.html`
-- [x] Production API server reachable (manifest `host_permissions` → `loving-reverence-production.up.railway.app`) — `/` returns `{"status":"ok"}`
+- [ ] Production API server reachable (manifest `host_permissions` → `aifakeorreal.fly.dev`) — deploy to Fly.io per `docs/deploy-fly.md`, then verify `/health`
 - [ ] Chrome Web Store developer account ($5 one-time fee) + verified publisher — _awaiting verification_
 - [x] Promo tiles: 440×280 + 1400×560 (`docs/store-screenshots/promo/`)
 - [ ] Upload `aifakeorreal-chrome.zip`, paste listing fields above, submit for review

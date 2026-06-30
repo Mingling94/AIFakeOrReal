@@ -11,18 +11,26 @@
                            └──────────────────┘      (free-tier, failover chain)
 ```
 
-## Backend (Railway)
+## Backend (Fly.io + Neon)
 
-**Live URL:** `https://loving-reverence-production.up.railway.app`
+**Live URL:** `https://aifakeorreal.fly.dev`
+
+Hosting: the API server runs on **Fly.io** (scale-to-zero, near-free) and Postgres
+on **Neon** (free tier). Full step-by-step in **[deploy-fly.md](deploy-fly.md)**.
+(`server/railway.json` / `Procfile` remain so Railway still works as a fallback.)
 
 ### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | (required) |
+| `DATABASE_URL` | PostgreSQL connection string (Neon, include `?sslmode=require`) | (required) |
+| `SECRET_KEY` | JWT signing secret — **required in production** (`openssl rand -hex 32`) | (refuses to boot if unset in prod) |
+| `NODE_ENV` | Set to `production` so the secret is enforced | (unset) |
 | `PORT` | Server port | `8000` |
 | `HOST` | Bind address | `0.0.0.0` |
 | `CORS_ORIGINS` | Comma-separated allowed origins | (chrome-extension + moz-extension auto-allowed) |
+| `LLM_CACHE_TTL_MS` | How long an analysis is cached | `604800000` (1 week) |
+| `VOTER_SALT` | Salt for anonymous-vote hashing | falls back to `SECRET_KEY` |
 
 #### LLM Detection (set any combination — system auto-failovers)
 
@@ -41,20 +49,19 @@
 
 **Diagnostic endpoint:** `GET /api/v1/providers` shows which providers are configured and what content types they support.
 
-### Deploy to Railway
+### Deploy to Fly.io
 
-1. Push to GitHub — Railway auto-deploys from `main`
-2. Or manual deploy:
+See **[deploy-fly.md](deploy-fly.md)** for the full first-time runbook (Neon DB,
+secrets, launch). Day-to-day redeploy:
 ```bash
 cd server
-npm run build
-railway up
+fly deploy
 ```
 
 ### Health Check
 
 ```bash
-curl https://loving-reverence-production.up.railway.app/health
+curl https://aifakeorreal.fly.dev/health
 # {"status":"ok","database":true}
 ```
 
@@ -131,7 +138,7 @@ npm run build:all    # builds dist/ (Chrome) and dist-firefox/ (Firefox)
 
 ## Database
 
-PostgreSQL hosted on Railway (managed). Schema is auto-created on first server start via `ensureSchema()`.
+PostgreSQL hosted on Neon (free tier, serverless). Schema is auto-created on first server start via `ensureSchema()`, which also runs idempotent migrations (e.g. the anonymous-vote `voter_hash` column) on every boot.
 
 ### Tables
 - `urls` — URL hashes, scores, analysis results
@@ -140,7 +147,7 @@ PostgreSQL hosted on Railway (managed). Schema is auto-created on first server s
 - `api_keys` — API keys for programmatic access
 
 ### Backup
-Railway provides automatic daily backups for PostgreSQL.
+Neon provides point-in-time restore on the free tier (limited retention window).
 
 ## Privacy & GDPR
 
