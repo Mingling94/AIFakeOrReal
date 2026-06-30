@@ -8,7 +8,7 @@
 # set DATABASE_URL as a secret, not here.
 
 app = "aifakeorreal"
-primary_region = "sea"   # Seattle — closest to most early users; change as you like
+primary_region = "sjc"   # San Jose (US West) — matches the created app; close to PNW users
 
 [build]
   dockerfile = "Dockerfile"
