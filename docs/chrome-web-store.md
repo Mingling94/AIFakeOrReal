@@ -64,9 +64,9 @@ English
 
 ## Privacy
 - Data handling: AI exposure history and preferences are stored locally on the device and never transmitted. Page text/images are sent to the detection API only to compute a score.
-- Privacy policy URL (use now — public + HTTPS): **https://github.com/Mingling94/AIFakeOrReal/blob/main/docs/privacy-policy.md**
-  - Why not the Pages URL: Pages is enabled (`main` → `/docs`) but the user-level custom domain `mingluo.me` has no valid TLS cert ("Enforce HTTPS — Unavailable"), so it serves **http only** and `github.io` redirects to it. Chrome Web Store requires an **https** privacy URL.
-  - To make `https://mingluo.me/AIFakeOrReal/privacy.html` work later: at the `mingluo.me` DNS provider point apex to GitHub Pages — A records `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153` (+ AAAA `2606:50c0:8000::153` … `8003::153`); re-enter the custom domain in the `Mingling94.github.io` repo's Pages settings; wait for cert provisioning; then enable **Enforce HTTPS**.
+- Privacy policy URL: **https://mingling94.github.io/AIFakeOrReal/privacy.html** (public, HTTPS, verified 200)
+  - Landing page: https://mingling94.github.io/AIFakeOrReal/
+  - The broken `mingluo.me` custom domain was removed from the `Mingling94.github.io` user site, so GitHub Pages now serves directly over HTTPS at `*.github.io`.
 
 ## Permission justifications
 
@@ -97,7 +97,7 @@ English
 - [x] Permission justifications
 - [x] Store icon (128×128)
 - [x] Screenshots sized to 1280×800 (`docs/store-screenshots/cws/`)
-- [x] Privacy policy at a public HTTPS URL — `https://github.com/Mingling94/AIFakeOrReal/blob/main/docs/privacy-policy.md` (swap to `mingluo.me` once its HTTPS is fixed)
+- [x] Privacy policy at a public HTTPS URL — `https://mingling94.github.io/AIFakeOrReal/privacy.html`
 - [x] Production API server reachable (manifest `host_permissions` → `loving-reverence-production.up.railway.app`) — `/` returns `{"status":"ok"}`
 - [ ] Chrome Web Store developer account ($5 one-time fee) + verified publisher — _awaiting verification_
 - [x] Promo tiles: 440×280 + 1400×560 (`docs/store-screenshots/promo/`)
